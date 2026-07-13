@@ -156,15 +156,15 @@ authRouter.post('/register', async (req, res) => {
 authRouter.post('/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
-    return res.status(400).json({ success: false, message: 'Email and password are required' });
+    return res.status(400).json({ success: false, message: 'Email/No. WhatsApp dan password wajib diisi' });
   }
   try {
-    const [users] = await db.query('SELECT * FROM users WHERE email = ? AND is_active = 1', [email]);
-    if (users.length === 0) return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    const [users] = await db.query('SELECT * FROM users WHERE (email = ? OR whatsapp = ?) AND is_active = 1', [email, email]);
+    if (users.length === 0) return res.status(401).json({ success: false, message: 'Email/No. WhatsApp atau password salah' });
 
     const user = users[0];
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    if (!isMatch) return res.status(401).json({ success: false, message: 'Email/No. WhatsApp atau password salah' });
 
     // Update last login
     await db.query('UPDATE users SET last_login = NOW() WHERE id = ?', [user.id]);

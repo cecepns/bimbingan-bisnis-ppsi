@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
 import logo from '../../assets/logo.jpeg';
@@ -49,18 +49,17 @@ const LoginPage = () => {
           <h2 className="text-xl font-bold text-white mb-6">Masuk ke akun Anda</h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            {/* Email */}
+            {/* Email / WhatsApp */}
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Email</label>
+              <label className="block text-sm text-gray-400 mb-2">Email / No. WhatsApp</label>
               <div className="relative">
-                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input
-                  type="email"
-                  placeholder="email@example.com"
+                  type="text"
+                  placeholder="Masukkan email atau nomor WhatsApp"
                   className="input-field pl-10"
                   {...register('email', {
-                    required: 'Email wajib diisi',
-                    pattern: { value: /\S+@\S+\.\S+/, message: 'Format email tidak valid' }
+                    required: 'Email atau No. WhatsApp wajib diisi'
                   })}
                 />
               </div>
