@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 const frontendAssets = path.join(root, "..", "frontend", "src", "assets");
 const assetsDir = path.join(root, "assets");
-const logoPath = path.join(frontendAssets, "logo.png");
+const logoPath = path.join(frontendAssets, "logo.jpeg");
 
 await mkdir(assetsDir, { recursive: true });
 
