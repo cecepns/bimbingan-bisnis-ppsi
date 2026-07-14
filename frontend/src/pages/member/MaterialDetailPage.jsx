@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, CheckCircle, Lock, Download, Timer, Loader2, Eye } from 'lucide-react';
-import ReactPlayer from 'react-player';
 import toast from 'react-hot-toast';
 import { materialsService, progressService } from '../../utils/request';
 import { getImageUrl, getYoutubeEmbedUrl } from '../../utils/helpers';
@@ -156,7 +155,12 @@ const MaterialDetailPage = () => {
       {/* YouTube Video */}
       {embedUrl && (
         <div className="rounded-2xl overflow-hidden aspect-video">
-          <ReactPlayer url={material.youtube_url} width="100%" height="100%" controls />
+          <iframe
+            src={embedUrl}
+            className="w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
         </div>
       )}
 
