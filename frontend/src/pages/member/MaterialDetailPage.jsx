@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, CheckCircle, Lock, Download, Timer, Loader2 } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle, Lock, Download, Timer, Loader2, Eye } from 'lucide-react';
 import ReactPlayer from 'react-player';
 import toast from 'react-hot-toast';
 import { materialsService, progressService } from '../../utils/request';
@@ -178,15 +178,28 @@ const MaterialDetailPage = () => {
       {material.file_attachment && (
         <div className="card">
           <h3 className="text-gray-900 dark:text-white font-semibold mb-3">File Pendukung</h3>
-          <a
-            href={getImageUrl(`files/${material.file_attachment}`)}
-            download
-            className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          >
-            <Download size={18} className="text-indigo-600 dark:text-indigo-400" />
-            <span className="text-gray-700 dark:text-gray-300 text-sm">{material.file_attachment}</span>
-            <span className="ml-auto text-indigo-600 dark:text-indigo-400 text-sm">Download</span>
-          </a>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <a
+              href={getImageUrl(`files/${material.file_attachment}`)}
+              download
+              className="flex-1 flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Download size={18} className="text-indigo-600 dark:text-indigo-400" />
+              <span className="text-gray-700 dark:text-gray-300 text-sm truncate">{material.file_attachment}</span>
+              <span className="ml-auto text-indigo-600 dark:text-indigo-400 text-sm font-medium">Download</span>
+            </a>
+            {material.file_attachment.toLowerCase().endsWith('.pdf') && (
+              <a
+                href={getImageUrl(`files/${material.file_attachment}`)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-sm font-medium transition-colors"
+              >
+                <Eye size={18} />
+                <span>Preview PDF</span>
+              </a>
+            )}
+          </div>
         </div>
       )}
 

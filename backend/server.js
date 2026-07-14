@@ -106,6 +106,42 @@ const uploadFile = multer({ storage: storage('files'), fileFilter, limits: { fil
 const uploadAvatar = multer({ storage: storage('avatars'), fileFilter: imageFilter, limits: { fileSize: 2 * 1024 * 1024 } });
 const uploadEditorImage = multer({ storage: storage('editor'), fileFilter: imageFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
+const materialStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (file.fieldname === 'file_attachment') {
+      cb(null, path.join(uploadDir, 'files'));
+    } else {
+      cb(null, path.join(uploadDir, 'thumbnails'));
+    }
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const materialFilter = (req, file, cb) => {
+  if (file.fieldname === 'file_attachment') {
+    const allowed = /pdf|docx|xlsx|pptx|doc|xls|ppt/;
+    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
+    if (ext) return cb(null, true);
+    return cb(new Error('Only PDF, DOCX, XLSX, PPTX files are allowed for attachments'));
+  } else {
+    const allowed = /jpeg|jpg|png|webp/;
+    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
+    const mime = allowed.test(file.mimetype);
+    if (ext && mime) return cb(null, true);
+    return cb(new Error('Only JPG, PNG, WEBP images are allowed for thumbnails/covers'));
+  }
+};
+
+const uploadMaterial = multer({
+  storage: materialStorage,
+  fileFilter: materialFilter,
+  limits: { fileSize: 20 * 1024 * 1024 }
+});
+
+
 
 // ============================================
 // ROUTES: AUTHENTICATION (/api/auth)
@@ -267,6 +303,41 @@ authRouter.post('/reset-password', async (req, res) => {
   }
 });
 
+const ensureUserProgress = async (userId) => {
+  try {
+    // Get all published materials
+    const [materials] = await db.query('SELECT id, order_index FROM materials WHERE status = "publish" ORDER BY order_index ASC');
+    if (materials.length === 0) return;
+
+    // Get current progress for the user
+    const [progress] = await db.query('SELECT material_id, status FROM user_progress WHERE user_id = ?', [userId]);
+    const progressMap = new Map(progress.map(p => [p.material_id, p.status]));
+
+    for (let i = 0; i < materials.length; i++) {
+      const mat = materials[i];
+      if (!progressMap.has(mat.id)) {
+        let status = 'locked';
+        if (i === 0) {
+          status = 'available';
+        } else {
+          const prevMat = materials[i - 1];
+          const prevStatus = progressMap.get(prevMat.id);
+          if (prevStatus === 'completed') {
+            status = 'available';
+          }
+        }
+        await db.query(
+          'INSERT INTO user_progress (user_id, material_id, status) VALUES (?, ?, ?)',
+          [userId, mat.id, status]
+        );
+        progressMap.set(mat.id, status);
+      }
+    }
+  } catch (err) {
+    console.error('Error ensuring user progress:', err);
+  }
+};
+
 
 // ============================================
 // ROUTES: MATERIALS (/api/materials)
@@ -278,6 +349,9 @@ materialsRouter.get('/', authMiddleware, async (req, res) => {
   const offset = (page - 1) * limit;
 
   try {
+    if (req.user.role === 'member') {
+      await ensureUserProgress(req.user.id);
+    }
     let whereClause = '';
     const params = [];
 
@@ -339,6 +413,7 @@ materialsRouter.get('/:id', authMiddleware, async (req, res) => {
     const material = rows[0];
 
     if (req.user.role === 'member') {
+      await ensureUserProgress(req.user.id);
       if (material.status !== 'publish') return res.status(404).json({ success: false, message: 'Material not found' });
 
       const [prog] = await db.query(
@@ -365,9 +440,10 @@ materialsRouter.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-materialsRouter.post('/', authMiddleware, adminMiddleware, uploadThumbnail.fields([
+materialsRouter.post('/', authMiddleware, adminMiddleware, uploadMaterial.fields([
   { name: 'thumbnail', maxCount: 1 },
-  { name: 'cover_image', maxCount: 1 }
+  { name: 'cover_image', maxCount: 1 },
+  { name: 'file_attachment', maxCount: 1 }
 ]), async (req, res) => {
   const { title, description, content, youtube_url, duration_minutes, order_index, status } = req.body;
   if (!title) {
@@ -379,6 +455,7 @@ materialsRouter.post('/', authMiddleware, adminMiddleware, uploadThumbnail.field
   }
   const thumbnail = req.files?.thumbnail?.[0]?.filename || null;
   const cover_image = req.files?.cover_image?.[0]?.filename || null;
+  const file_attachment = req.files?.file_attachment?.[0]?.filename || null;
 
   try {
     let orderIdx = order_index;
@@ -388,8 +465,8 @@ materialsRouter.post('/', authMiddleware, adminMiddleware, uploadThumbnail.field
     }
 
     const [result] = await db.query(
-      'INSERT INTO materials (title, description, content, thumbnail, cover_image, youtube_url, duration_minutes, order_index, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [title, description, content, thumbnail, cover_image, youtube_url, duration_minutes, orderIdx, status || 'draft']
+      'INSERT INTO materials (title, description, content, thumbnail, cover_image, youtube_url, file_attachment, duration_minutes, order_index, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [title, description, content, thumbnail, cover_image, youtube_url, file_attachment, duration_minutes, orderIdx, status || 'draft']
     );
 
     if (status === 'publish') {
@@ -414,7 +491,7 @@ materialsRouter.post('/', authMiddleware, adminMiddleware, uploadThumbnail.field
   }
 });
 
-materialsRouter.put('/:id', authMiddleware, adminMiddleware, uploadThumbnail.fields([
+materialsRouter.put('/:id', authMiddleware, adminMiddleware, uploadMaterial.fields([
   { name: 'thumbnail', maxCount: 1 },
   { name: 'cover_image', maxCount: 1 },
   { name: 'file_attachment', maxCount: 1 },
@@ -506,6 +583,7 @@ progressRouter.post('/complete/:materialId', authMiddleware, async (req, res) =>
   const { time_spent, device, browser, ip_address } = req.body;
 
   try {
+    await ensureUserProgress(req.user.id);
     const [material] = await db.query('SELECT * FROM materials WHERE id = ? AND status = "publish"', [materialId]);
     if (material.length === 0) return res.status(404).json({ success: false, message: 'Material not found' });
 
@@ -536,7 +614,7 @@ progressRouter.post('/complete/:materialId', authMiddleware, async (req, res) =>
     let nextUnlocked = null;
     if (nextMaterial.length > 0) {
       await db.query(
-        'UPDATE user_progress SET status = "available" WHERE user_id = ? AND material_id = ? AND status = "locked"',
+        'INSERT INTO user_progress (user_id, material_id, status) VALUES (?, ?, "available") ON DUPLICATE KEY UPDATE status = CASE WHEN status = "locked" THEN "available" ELSE status END',
         [req.user.id, nextMaterial[0].id]
       );
       nextUnlocked = { id: nextMaterial[0].id, title: nextMaterial[0].title };
@@ -555,11 +633,12 @@ progressRouter.post('/complete/:materialId', authMiddleware, async (req, res) =>
 
 progressRouter.get('/my', authMiddleware, async (req, res) => {
   try {
+    await ensureUserProgress(req.user.id);
     const [summary] = await db.query(`
       SELECT
         COUNT(m.id) as total_materials,
         SUM(CASE WHEN up.status = 'completed' THEN 1 ELSE 0 END) as completed,
-        SUM(CASE WHEN up.status = 'locked' THEN 1 ELSE 0 END) as locked,
+        SUM(CASE WHEN COALESCE(up.status, 'locked') = 'locked' THEN 1 ELSE 0 END) as locked,
         SUM(CASE WHEN up.status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
         SUM(CASE WHEN up.status = 'available' THEN 1 ELSE 0 END) as available
       FROM materials m
@@ -596,6 +675,7 @@ progressRouter.get('/my', authMiddleware, async (req, res) => {
 progressRouter.post('/start/:materialId', authMiddleware, async (req, res) => {
   const { materialId } = req.params;
   try {
+    await ensureUserProgress(req.user.id);
     const [prog] = await db.query(
       'SELECT * FROM user_progress WHERE user_id = ? AND material_id = ?',
       [req.user.id, materialId]
@@ -679,6 +759,7 @@ usersRouter.get('/', authMiddleware, adminMiddleware, async (req, res) => {
 
 usersRouter.get('/:id', authMiddleware, adminMiddleware, async (req, res) => {
   try {
+    await ensureUserProgress(req.params.id);
     const [users] = await db.query(
       'SELECT id, name, email, whatsapp, is_active, created_at, last_login FROM users WHERE id = ?',
       [req.params.id]

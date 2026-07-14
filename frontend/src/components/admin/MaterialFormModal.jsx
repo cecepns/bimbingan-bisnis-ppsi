@@ -151,7 +151,7 @@ const MaterialFormModal = ({ isOpen, onClose, editData, onSuccess }) => {
               <label className="block text-sm text-gray-700 dark:text-gray-400 mb-2">File Pendukung (PDF, DOCX, dll)</label>
               <label className="flex items-center gap-3 input-field cursor-pointer">
                 <Upload size={16} className="text-gray-500" />
-                <span className="text-gray-500 text-sm">{fileAttachment?.name || 'Pilih file...'}</span>
+                <span className="text-gray-500 text-sm">{fileAttachment?.name || editData?.file_attachment || 'Pilih file...'}</span>
                 <input type="file" className="hidden" accept=".pdf,.docx,.xlsx,.pptx"
                   onChange={(e) => setFileAttachment(e.target.files[0])} />
               </label>
