@@ -102,7 +102,7 @@ const ResetPasswordPage = () => {
           </p>
         </div>
 
-        <div className="card shadow-2xl border border-white/10 backdrop-blur-xl">
+        <div className="bg-gray-900/90 border border-gray-800 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 backdrop-blur-xl">
           {verifyingToken ? (
             <div className="text-center py-10 space-y-3">
               <Loader2 size={36} className="animate-spin text-indigo-400 mx-auto" />
@@ -120,13 +120,13 @@ const ResetPasswordPage = () => {
               <div className="pt-3 flex flex-col gap-2.5">
                 <Link
                   to="/forgot-password"
-                  className="btn-primary w-full flex items-center justify-center gap-2 text-sm py-2.5"
+                  className="btn-primary w-full flex items-center justify-center gap-2 text-sm py-2.5 shadow-lg shadow-indigo-600/30"
                 >
                   <KeyRound size={16} /> Minta Tautan Baru
                 </Link>
                 <Link
                   to="/login"
-                  className="btn-secondary w-full flex items-center justify-center gap-2 text-sm py-2.5"
+                  className="w-full flex items-center justify-center gap-2 text-sm font-medium py-2.5 px-4 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 transition-all duration-200 active:scale-95"
                 >
                   <ArrowLeft size={16} /> Kembali ke Login
                 </Link>
@@ -139,7 +139,7 @@ const ResetPasswordPage = () => {
               </div>
               <h3 className="text-white font-bold text-lg">Kata Sandi Diperbarui!</h3>
               <p className="text-gray-300 text-sm leading-relaxed">
-                Kata sandi untuk akun <span className="font-semibold text-indigo-300">{tokenEmail}</span> telah berhasil diubah.
+                Kata sandi untuk akun <span className="font-semibold text-indigo-400">{tokenEmail}</span> telah berhasil diubah.
               </p>
               <div className="pt-4">
                 <button
@@ -154,7 +154,7 @@ const ResetPasswordPage = () => {
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               {tokenEmail && (
-                <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-3 text-xs text-indigo-200">
+                <div className="bg-indigo-950/60 border border-indigo-500/30 rounded-xl p-3 text-xs text-indigo-200">
                   Mereset kata sandi untuk akun: <strong className="text-white font-medium">{tokenEmail}</strong>
                 </div>
               )}
@@ -167,7 +167,7 @@ const ResetPasswordPage = () => {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Minimal 6 karakter"
-                    className="input-field pl-10 pr-10"
+                    className="w-full bg-gray-800/80 border border-gray-700 text-white placeholder-gray-500 rounded-xl pl-10 pr-10 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all duration-200"
                     {...register('password', {
                       required: 'Kata sandi baru wajib diisi',
                       minLength: {
@@ -195,7 +195,7 @@ const ResetPasswordPage = () => {
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="Ulangi kata sandi baru"
-                    className="input-field pl-10 pr-10"
+                    className="w-full bg-gray-800/80 border border-gray-700 text-white placeholder-gray-500 rounded-xl pl-10 pr-10 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all duration-200"
                     {...register('confirmPassword', {
                       required: 'Konfirmasi kata sandi wajib diisi',
                       validate: (val) => val === passwordValue || 'Kata sandi tidak cocok',

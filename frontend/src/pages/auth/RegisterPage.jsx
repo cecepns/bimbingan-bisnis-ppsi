@@ -42,16 +42,16 @@ const RegisterPage = () => {
           <p className="text-gray-400 mt-1">Mulai perjalanan belajar Anda</p>
         </div>
 
-        <div className="card shadow-xl shadow-black/40">
+        <div className="bg-gray-900/90 border border-gray-800 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 backdrop-blur-xl">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {/* Name */}
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Nama Lengkap</label>
+              <label className="block text-sm text-gray-300 mb-2">Nama Lengkap</label>
               <div className="relative">
                 <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input
                   type="text" placeholder="Nama lengkap Anda"
-                  className="input-field pl-10"
+                  className="w-full bg-gray-800/80 border border-gray-700 text-white placeholder-gray-500 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all duration-200"
                   {...register('name', { required: 'Nama wajib diisi' })}
                 />
               </div>
@@ -60,12 +60,12 @@ const RegisterPage = () => {
 
             {/* Email */}
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Email</label>
+              <label className="block text-sm text-gray-300 mb-2">Email</label>
               <div className="relative">
                 <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input
                   type="email" placeholder="email@example.com"
-                  className="input-field pl-10"
+                  className="w-full bg-gray-800/80 border border-gray-700 text-white placeholder-gray-500 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all duration-200"
                   {...register('email', {
                     required: 'Email wajib diisi',
                     pattern: { value: /\S+@\S+\.\S+/, message: 'Format email tidak valid' }
@@ -77,12 +77,12 @@ const RegisterPage = () => {
 
             {/* WhatsApp */}
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Nomor WhatsApp</label>
+              <label className="block text-sm text-gray-300 mb-2">Nomor WhatsApp</label>
               <div className="relative">
                 <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input
                   type="text" placeholder="08xxxxxxxxxx"
-                  className="input-field pl-10"
+                  className="w-full bg-gray-800/80 border border-gray-700 text-white placeholder-gray-500 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all duration-200"
                   {...register('whatsapp', { required: 'Nomor WhatsApp wajib diisi' })}
                 />
               </div>
@@ -91,12 +91,12 @@ const RegisterPage = () => {
 
             {/* Password */}
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Password</label>
+              <label className="block text-sm text-gray-300 mb-2">Password</label>
               <div className="relative">
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input
                   type={showPassword ? 'text' : 'password'} placeholder="Min. 6 karakter"
-                  className="input-field pl-10 pr-10"
+                  className="w-full bg-gray-800/80 border border-gray-700 text-white placeholder-gray-500 rounded-xl pl-10 pr-10 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all duration-200"
                   {...register('password', { required: 'Password wajib diisi', minLength: { value: 6, message: 'Minimal 6 karakter' } })}
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
@@ -109,12 +109,12 @@ const RegisterPage = () => {
 
             {/* Confirm Password */}
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Konfirmasi Password</label>
+              <label className="block text-sm text-gray-300 mb-2">Konfirmasi Password</label>
               <div className="relative">
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input
                   type="password" placeholder="Ulangi password"
-                  className="input-field pl-10"
+                  className="w-full bg-gray-800/80 border border-gray-700 text-white placeholder-gray-500 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all duration-200"
                   {...register('confirmPassword', {
                     required: 'Konfirmasi password wajib diisi',
                     validate: value => value === password || 'Password tidak cocok'
@@ -124,7 +124,7 @@ const RegisterPage = () => {
               {errors.confirmPassword && <p className="text-red-400 text-xs mt-1">{errors.confirmPassword.message}</p>}
             </div>
 
-            <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2 mt-2">
+            <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2 py-3 text-sm font-semibold shadow-lg shadow-indigo-600/30 mt-2">
               {loading ? <><Loader2 size={18} className="animate-spin" /> Mendaftar...</> : 'Daftar Sekarang'}
             </button>
           </form>

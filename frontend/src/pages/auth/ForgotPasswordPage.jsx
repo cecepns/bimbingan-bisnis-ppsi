@@ -43,32 +43,34 @@ const ForgotPasswordPage = () => {
           </p>
         </div>
 
-        <div className="card shadow-2xl border border-white/10 backdrop-blur-xl">
+        <div className="bg-gray-900/90 border border-gray-800 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 backdrop-blur-xl">
           {sent ? (
-            <div className="text-center py-4 space-y-4">
+            <div className="text-center py-2 space-y-4">
               <div className="w-16 h-16 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center mx-auto mb-2 animate-bounce">
                 <CheckCircle size={32} className="text-green-400" />
               </div>
-              <h3 className="text-white font-bold text-lg">Periksa Email Anda</h3>
+              <h3 className="text-white font-bold text-xl">Periksa Email Anda</h3>
               <p className="text-gray-300 text-sm leading-relaxed">
                 Kami telah mengirimkan tautan reset kata sandi ke <br />
-                <span className="font-semibold text-indigo-300">{targetEmail}</span>.
+                <span className="font-semibold text-indigo-400">{targetEmail}</span>
               </p>
-              <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 text-xs text-gray-400 text-left space-y-1.5">
-                <p>💡 <strong className="text-gray-300">Tips:</strong></p>
-                <p>• Link hanya berlaku selama <strong className="text-gray-200">1 jam</strong>.</p>
-                <p>• Periksa folder <strong className="text-gray-200">Spam / Junk</strong> jika tidak ada di inbox.</p>
+              <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-4 text-xs text-gray-300 text-left space-y-2">
+                <p className="font-medium text-amber-400 flex items-center gap-1.5">
+                  <span>💡</span> <strong>Tips Penting:</strong>
+                </p>
+                <p className="text-gray-300">• Link tautan hanya berlaku selama <strong className="text-white">1 jam</strong>.</p>
+                <p className="text-gray-300">• Periksa folder <strong className="text-white">Spam / Junk</strong> jika email tidak ditemukan di inbox.</p>
               </div>
 
               <div className="pt-2 flex flex-col gap-2.5">
                 <button
                   type="button"
                   onClick={() => setSent(false)}
-                  className="btn-secondary w-full flex items-center justify-center gap-2 text-sm py-2.5"
+                  className="w-full flex items-center justify-center gap-2 text-sm font-medium py-2.5 px-4 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 transition-all duration-200 active:scale-95"
                 >
                   <RefreshCw size={15} /> Kirim ke email lain
                 </button>
-                <Link to="/login" className="btn-primary w-full flex items-center justify-center gap-2 text-sm py-2.5">
+                <Link to="/login" className="btn-primary w-full flex items-center justify-center gap-2 text-sm py-2.5 shadow-lg shadow-indigo-600/30">
                   <ArrowLeft size={16} /> Kembali ke Login
                 </Link>
               </div>
@@ -82,7 +84,7 @@ const ForgotPasswordPage = () => {
                   <input
                     type="email"
                     placeholder="nama@email.com"
-                    className="input-field pl-10"
+                    className="w-full bg-gray-800/80 border border-gray-700 text-white placeholder-gray-500 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all duration-200"
                     {...register('email', {
                       required: 'Email wajib diisi',
                       pattern: {

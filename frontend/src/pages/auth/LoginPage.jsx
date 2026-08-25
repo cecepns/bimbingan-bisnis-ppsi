@@ -45,19 +45,19 @@ const LoginPage = () => {
           <p className="text-gray-400 mt-1">Platform Pembelajaran Digital</p>
         </div>
 
-        <div className="card shadow-xl shadow-black/40">
+        <div className="bg-gray-900/90 border border-gray-800 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 backdrop-blur-xl">
           <h2 className="text-xl font-bold text-white mb-6">Masuk ke akun Anda</h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             {/* Email / WhatsApp */}
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Email / No. WhatsApp</label>
+              <label className="block text-sm text-gray-300 mb-2">Email / No. WhatsApp</label>
               <div className="relative">
                 <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input
                   type="text"
                   placeholder="Masukkan email atau nomor WhatsApp"
-                  className="input-field pl-10"
+                  className="w-full bg-gray-800/80 border border-gray-700 text-white placeholder-gray-500 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all duration-200"
                   {...register('email', {
                     required: 'Email atau No. WhatsApp wajib diisi'
                   })}
@@ -69,7 +69,7 @@ const LoginPage = () => {
             {/* Password */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm text-gray-400">Password</label>
+                <label className="block text-sm text-gray-300">Password</label>
                 <Link
                   to="/forgot-password"
                   className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors hover:underline"
@@ -82,7 +82,7 @@ const LoginPage = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Password Anda"
-                  className="input-field pl-10 pr-10"
+                  className="w-full bg-gray-800/80 border border-gray-700 text-white placeholder-gray-500 rounded-xl pl-10 pr-10 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all duration-200"
                   {...register('password', { required: 'Password wajib diisi' })}
                 />
                 <button
@@ -96,7 +96,7 @@ const LoginPage = () => {
               {errors.password && <p className="text-red-400 text-xs mt-1">{errors.password.message}</p>}
             </div>
 
-            <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
+            <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2 py-3 text-sm font-semibold shadow-lg shadow-indigo-600/30">
               {loading ? <><Loader2 size={18} className="animate-spin" /> Masuk...</> : 'Masuk'}
             </button>
           </form>

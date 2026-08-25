@@ -428,7 +428,7 @@ authRouter.post('/forgot-password', async (req, res) => {
       [email, token, expires, token, expires]
     );
 
-    const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendBaseUrl = process.env.FRONTEND_URL || 'https://bimbingan-bisnis-ppsi.vercel.app/';
     const resetLink = `${frontendBaseUrl}/reset-password?token=${token}`;
 
     const mailResult = await sendResetPasswordEmail(email, resetLink);
