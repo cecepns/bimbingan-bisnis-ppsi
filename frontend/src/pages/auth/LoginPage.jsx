@@ -70,9 +70,12 @@ const LoginPage = () => {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm text-gray-400">Password</label>
-                {/* <Link to="/forgot-password" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors hover:underline"
+                >
                   Lupa password?
-                </Link> */}
+                </Link>
               </div>
               <div className="relative">
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
