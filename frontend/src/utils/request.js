@@ -35,6 +35,12 @@ export const authService = {
       return res.data;
     } catch (err) { handleError(err); }
   },
+  verifyResetToken: async (token) => {
+    try {
+      const res = await api.get(API_ENDPOINTS.AUTH.VERIFY_RESET_TOKEN(token));
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
   resetPassword: async (data) => {
     try {
       const res = await api.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, data);
@@ -192,3 +198,26 @@ export const statsService = {
     } catch (err) { handleError(err); }
   },
 };
+
+// ===== SETTINGS =====
+export const settingsService = {
+  getEmailSettings: async () => {
+    try {
+      const res = await api.get(API_ENDPOINTS.SETTINGS.GET_EMAIL);
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
+  updateEmailSettings: async (data) => {
+    try {
+      const res = await api.put(API_ENDPOINTS.SETTINGS.UPDATE_EMAIL, data);
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
+  testEmail: async (data) => {
+    try {
+      const res = await api.post(API_ENDPOINTS.SETTINGS.TEST_EMAIL, data);
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
+};
+

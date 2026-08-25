@@ -12,11 +12,13 @@ import MemberLayout from './components/layout/MemberLayout';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminMaterials from './pages/admin/AdminMaterials';
 import AdminMembers from './pages/admin/AdminMembers';
+import AdminSettings from './pages/admin/AdminSettings';
 
 // Member Pages
 import MemberDashboard from './pages/member/MemberDashboard';
@@ -46,13 +48,15 @@ const App = () => {
             <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
             <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
             <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+            <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute requireRole="admin"><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/materials" element={<ProtectedRoute requireRole="admin"><AdminLayout><AdminMaterials /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/members" element={<ProtectedRoute requireRole="admin"><AdminLayout><AdminMembers /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/stats" element={<ProtectedRoute requireRole="admin"><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
-            <Route path="/admin/settings" element={<ProtectedRoute requireRole="admin"><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/settings" element={<ProtectedRoute requireRole="admin"><AdminLayout><AdminSettings /></AdminLayout></ProtectedRoute>} />
+
 
             {/* Member Routes */}
             <Route path="/member" element={<ProtectedRoute requireRole="member"><MemberLayout><MemberDashboard /></MemberLayout></ProtectedRoute>} />

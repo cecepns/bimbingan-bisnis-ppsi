@@ -4,6 +4,7 @@ export const API_ENDPOINTS = {
     REGISTER: '/auth/register',
     PROFILE: '/auth/profile',
     FORGOT_PASSWORD: '/auth/forgot-password',
+    VERIFY_RESET_TOKEN: (token) => `/auth/verify-reset-token/${token}`,
     RESET_PASSWORD: '/auth/reset-password',
   },
 
@@ -39,4 +40,11 @@ export const API_ENDPOINTS = {
   STATS: {
     DASHBOARD: '/stats',
   },
+
+  SETTINGS: {
+    GET_EMAIL: '/settings/email',
+    UPDATE_EMAIL: '/settings/email',
+    TEST_EMAIL: '/settings/email/test',
+  },
 };
+

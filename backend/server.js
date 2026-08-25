@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -34,6 +35,178 @@ const pool = mysql.createPool({
 });
 
 const db = pool.promise();
+
+// Auto-initialize tables if not exists
+const initDatabase = async () => {
+  try {
+    // Ensure email_settings table exists
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS email_settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        smtp_host VARCHAR(255) DEFAULT 'smtp.gmail.com',
+        smtp_port INT DEFAULT 465,
+        smtp_secure BOOLEAN DEFAULT TRUE,
+        smtp_user VARCHAR(255) DEFAULT '',
+        app_password VARCHAR(255) DEFAULT '',
+        sender_name VARCHAR(255) DEFAULT 'LMS Bisnis',
+        sender_email VARCHAR(255) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Ensure at least 1 default row exists
+    const [rows] = await db.query('SELECT id FROM email_settings WHERE id = 1');
+    if (rows.length === 0) {
+      await db.query(`
+        INSERT INTO email_settings (id, smtp_host, smtp_port, smtp_secure, smtp_user, app_password, sender_name, sender_email)
+        VALUES (1, 'smtp.gmail.com', 465, TRUE, 'sampurdi@gmail.com', 'igfm raoe ovlj qsjm', 'LMS Bisnis', 'sampurdi@gmail.com')
+      `);
+    } else {
+      // Ensure existing row has configured credentials if it was empty
+      await db.query(`
+        UPDATE email_settings 
+        SET smtp_user = IF(smtp_user = '' OR smtp_user IS NULL, 'sampurdi@gmail.com', smtp_user),
+            app_password = IF(app_password = '' OR app_password IS NULL, 'igfm raoe ovlj qsjm', app_password),
+            sender_email = IF(sender_email = '' OR sender_email IS NULL, 'sampurdi@gmail.com', sender_email)
+        WHERE id = 1
+      `);
+    }
+
+    // Ensure password_resets table exists
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS password_resets (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(100) NOT NULL UNIQUE,
+        token VARCHAR(255) NOT NULL,
+        expires_at DATETIME NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (err) {
+    console.warn('Database auto-init notice:', err.message);
+  }
+};
+initDatabase();
+
+// Email Helper Functions (Hardcoded Default + DB / ENV Support)
+const DEFAULT_EMAIL_CONFIG = {
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  user: 'sampurdi@gmail.com',
+  pass: 'igfm raoe ovlj qsjm',
+  senderName: 'LMS Bisnis',
+  senderEmail: 'sampurdi@gmail.com',
+};
+
+const getEmailConfig = async () => {
+  try {
+    const [rows] = await db.query('SELECT * FROM email_settings WHERE id = 1');
+    const dbConfig = rows[0] || {};
+
+    const host = dbConfig.smtp_host || process.env.SMTP_HOST || DEFAULT_EMAIL_CONFIG.host;
+    const port = Number(dbConfig.smtp_port) || Number(process.env.SMTP_PORT) || DEFAULT_EMAIL_CONFIG.port;
+    const secure = dbConfig.smtp_secure !== undefined ? Boolean(dbConfig.smtp_secure) : DEFAULT_EMAIL_CONFIG.secure;
+    const user = dbConfig.smtp_user || process.env.SMTP_USER || DEFAULT_EMAIL_CONFIG.user;
+    const pass = dbConfig.app_password || process.env.SMTP_PASS || DEFAULT_EMAIL_CONFIG.pass;
+    const senderName = dbConfig.sender_name || DEFAULT_EMAIL_CONFIG.senderName;
+    const senderEmail = dbConfig.sender_email || user || DEFAULT_EMAIL_CONFIG.senderEmail;
+
+    return {
+      host,
+      port,
+      secure,
+      auth: { user, pass },
+      from: `"${senderName}" <${senderEmail}>`,
+      isConfigured: Boolean(user && pass),
+    };
+  } catch (err) {
+    return {
+      host: DEFAULT_EMAIL_CONFIG.host,
+      port: DEFAULT_EMAIL_CONFIG.port,
+      secure: DEFAULT_EMAIL_CONFIG.secure,
+      auth: { user: DEFAULT_EMAIL_CONFIG.user, pass: DEFAULT_EMAIL_CONFIG.pass },
+      from: `"${DEFAULT_EMAIL_CONFIG.senderName}" <${DEFAULT_EMAIL_CONFIG.senderEmail}>`,
+      isConfigured: true,
+    };
+  }
+};
+
+
+const sendResetPasswordEmail = async (toEmail, resetLink) => {
+  const config = await getEmailConfig();
+
+  if (!config.isConfigured) {
+    console.log('\n======================================================');
+    console.log('[DEVELOPMENT / SMTP NOT CONFIGURED]');
+    console.log(`To: ${toEmail}`);
+    console.log(`Reset Password Link: ${resetLink}`);
+    console.log('Untuk mengirim email nyata, atur SMTP & App Password di Admin Settings atau file .env');
+    console.log('======================================================\n');
+    return { sent: false, devMode: true };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: config.auth,
+  });
+
+  const mailOptions = {
+    from: config.from,
+    to: toEmail,
+    subject: 'Reset Kata Sandi - LMS Bisnis',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; margin: 0; padding: 20px; color: #f1f5f9; }
+          .container { max-width: 540px; margin: 0 auto; background-color: #1e293b; border-radius: 16px; overflow: hidden; border: 1px solid #334155; }
+          .header { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 32px 20px; text-align: center; }
+          .content { padding: 32px 28px; }
+          .btn { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #ffffff !important; padding: 14px 28px; border-radius: 10px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 15px; margin: 20px 0; }
+          .footer { background-color: #0f172a; padding: 18px 24px; text-align: center; border-top: 1px solid #334155; font-size: 12px; color: #64748b; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">LMS Bisnis</h1>
+            <p style="color: #e0e7ff; margin: 6px 0 0 0; font-size: 14px;">Permintaan Reset Kata Sandi</p>
+          </div>
+          <div class="content">
+            <h2 style="color: #ffffff; font-size: 18px; margin-top: 0;">Halo,</h2>
+            <p style="color: #94a3b8; font-size: 14px; line-height: 1.6;">
+              Kami menerima permintaan untuk mereset kata sandi akun LMS Bisnis Anda. Klik tombol di bawah ini untuk membuat kata sandi baru:
+            </p>
+            <div style="text-align: center;">
+              <a href="${resetLink}" class="btn" target="_blank">Atur Ulang Kata Sandi</a>
+            </div>
+            <p style="color: #94a3b8; font-size: 13px; line-height: 1.6; margin-top: 20px;">
+              ⏱️ Link ini berlaku selama <strong>1 jam</strong>. Jika Anda tidak melakukan permintaan ini, abaikan email ini dan akun Anda tetap aman.
+            </p>
+            <hr style="border: 0; border-top: 1px solid #334155; margin: 24px 0;" />
+            <p style="color: #64748b; font-size: 12px; word-break: break-all;">
+              Jika tombol di atas tidak dapat diklik, salin dan buka link berikut di browser:<br/>
+              <a href="${resetLink}" style="color: #818cf8;">${resetLink}</a>
+            </p>
+          </div>
+          <div class="footer">
+            &copy; ${new Date().getFullYear()} LMS Bisnis. Hak Cipta Dilindungi.
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+  return { sent: true };
+};
 
 // ============================================
 // AUTHENTICATION MIDDLEWARE
@@ -239,15 +412,15 @@ authRouter.get('/profile', authMiddleware, async (req, res) => {
 authRouter.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) {
-    return res.status(400).json({ success: false, message: 'Email is required' });
+    return res.status(400).json({ success: false, message: 'Email wajib diisi' });
   }
   try {
     const [users] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-    if (users.length === 0) return res.status(404).json({ success: false, message: 'Email not found' });
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, message: 'Email tidak terdaftar di sistem' });
+    }
 
-    const salt = await bcrypt.genSalt(10);
-    const rawToken = Math.random().toString() + Date.now().toString();
-    const token = (await bcrypt.hash(rawToken, salt)).replace(/[^a-zA-Z0-9]/g, '');
+    const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 3600000); // 1 hour
 
     await db.query(
@@ -255,27 +428,49 @@ authRouter.post('/forgot-password', async (req, res) => {
       [email, token, expires, token, expires]
     );
 
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-    console.log(`[DEVELOPMENT] Reset password link for ${email}: ${resetLink}`);
+    const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetLink = `${frontendBaseUrl}/reset-password?token=${token}`;
 
-    /* Hide nodemailer for now
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    const mailResult = await sendResetPasswordEmail(email, resetLink);
+
+    let message = 'Link reset password telah dikirim ke email Anda. Silakan cek kotak masuk (atau folder spam).';
+    if (mailResult.devMode) {
+      message = 'Link reset password berhasil dibuat (Mode Development: Periksa terminal server untuk melihat link)';
+    }
+
+    res.json({
+      success: true,
+      message,
+      data: {
+        email,
+        expiresIn: '1 hour',
+        ...(mailResult.devMode ? { devResetLink: resetLink } : {}),
+      },
     });
-
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to: email,
-      subject: 'Reset Password - LMS Bisnis',
-      html: `<p>Klik link berikut untuk reset password Anda:</p><a href="${resetLink}">${resetLink}</a><p>Link berlaku 1 jam.</p>`,
-    });
-    */
-
-    res.json({ success: true, message: 'Reset password link has been generated (check server logs in development)' });
   } catch (err) {
-    console.error(err);
+    console.error('Forgot password error:', err);
+    res.status(500).json({ success: false, message: 'Gagal memproses reset password: ' + err.message });
+  }
+});
+
+authRouter.get('/verify-reset-token/:token', async (req, res) => {
+  const { token } = req.params;
+  if (!token) {
+    return res.status(400).json({ success: false, message: 'Token tidak valid' });
+  }
+  try {
+    const [resets] = await db.query('SELECT email, expires_at FROM password_resets WHERE token = ? AND expires_at > NOW()', [token]);
+    if (resets.length === 0) {
+      return res.status(400).json({ success: false, message: 'Token reset password tidak valid atau sudah kadaluarsa' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Token valid',
+      data: { email: resets[0].email },
+    });
+  } catch (err) {
+    console.error('Verify reset token error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -283,25 +478,28 @@ authRouter.post('/forgot-password', async (req, res) => {
 authRouter.post('/reset-password', async (req, res) => {
   const { token, password } = req.body;
   if (!token || !password) {
-    return res.status(400).json({ success: false, message: 'Token and password are required' });
+    return res.status(400).json({ success: false, message: 'Token dan kata sandi baru wajib diisi' });
   }
   if (password.length < 6) {
-    return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    return res.status(400).json({ success: false, message: 'Kata sandi minimal 6 karakter' });
   }
   try {
     const [resets] = await db.query('SELECT * FROM password_resets WHERE token = ? AND expires_at > NOW()', [token]);
-    if (resets.length === 0) return res.status(400).json({ success: false, message: 'Invalid or expired token' });
+    if (resets.length === 0) {
+      return res.status(400).json({ success: false, message: 'Token reset password tidak valid atau sudah kadaluarsa' });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     await db.query('UPDATE users SET password = ? WHERE email = ?', [hashedPassword, resets[0].email]);
     await db.query('DELETE FROM password_resets WHERE token = ?', [token]);
 
-    res.json({ success: true, message: 'Password has been reset successfully' });
+    res.json({ success: true, message: 'Kata sandi berhasil diatur ulang. Silakan login kembali.' });
   } catch (err) {
-    console.error(err);
+    console.error('Reset password error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
 
 const ensureUserProgress = async (userId) => {
   try {
@@ -992,6 +1190,106 @@ statsRouter.get('/', authMiddleware, adminMiddleware, async (req, res) => {
 
 
 // ============================================
+// SETTINGS ROUTER (Admin Only)
+// ============================================
+const settingsRouter = express.Router();
+
+settingsRouter.get('/email', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM email_settings WHERE id = 1');
+    const settings = rows[0] || {};
+    res.json({
+      success: true,
+      data: {
+        smtp_host: settings.smtp_host || process.env.SMTP_HOST || DEFAULT_EMAIL_CONFIG.host,
+        smtp_port: Number(settings.smtp_port) || Number(process.env.SMTP_PORT) || DEFAULT_EMAIL_CONFIG.port,
+        smtp_secure: settings.smtp_secure !== undefined ? Boolean(settings.smtp_secure) : DEFAULT_EMAIL_CONFIG.secure,
+        smtp_user: settings.smtp_user || process.env.SMTP_USER || DEFAULT_EMAIL_CONFIG.user,
+        app_password: settings.app_password || process.env.SMTP_PASS || DEFAULT_EMAIL_CONFIG.pass,
+        sender_name: settings.sender_name || DEFAULT_EMAIL_CONFIG.senderName,
+        sender_email: settings.sender_email || DEFAULT_EMAIL_CONFIG.senderEmail,
+      },
+    });
+
+  } catch (err) {
+    console.error('Get email settings error:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
+
+settingsRouter.put('/email', authMiddleware, adminMiddleware, async (req, res) => {
+  const { smtp_host, smtp_port, smtp_secure, smtp_user, app_password, sender_name, sender_email } = req.body;
+  try {
+    const [rows] = await db.query('SELECT id FROM email_settings WHERE id = 1');
+    if (rows.length === 0) {
+      await db.query(
+        'INSERT INTO email_settings (id, smtp_host, smtp_port, smtp_secure, smtp_user, app_password, sender_name, sender_email) VALUES (1, ?, ?, ?, ?, ?, ?, ?)',
+        [smtp_host || 'smtp.gmail.com', smtp_port || 465, smtp_secure !== undefined ? smtp_secure : true, smtp_user || '', app_password || '', sender_name || 'LMS Bisnis', sender_email || '']
+      );
+    } else {
+      await db.query(
+        'UPDATE email_settings SET smtp_host = ?, smtp_port = ?, smtp_secure = ?, smtp_user = ?, app_password = ?, sender_name = ?, sender_email = ? WHERE id = 1',
+        [smtp_host || 'smtp.gmail.com', smtp_port || 465, smtp_secure !== undefined ? smtp_secure : true, smtp_user || '', app_password || '', sender_name || 'LMS Bisnis', sender_email || '']
+      );
+    }
+    res.json({ success: true, message: 'Pengaturan email & App Password berhasil disimpan' });
+  } catch (err) {
+    console.error('Update email settings error:', err);
+    res.status(500).json({ success: false, message: 'Gagal menyimpan pengaturan: ' + err.message });
+  }
+});
+
+settingsRouter.post('/email/test', authMiddleware, adminMiddleware, async (req, res) => {
+  const { test_email } = req.body;
+  const targetEmail = test_email || req.user.email;
+  if (!targetEmail) {
+    return res.status(400).json({ success: false, message: 'Email tujuan pengujian wajib diisi' });
+  }
+  try {
+    const config = await getEmailConfig();
+    if (!config.auth.user || !config.auth.pass) {
+      return res.status(400).json({
+        success: false,
+        message: 'SMTP User (Email) dan App Password belum diisi. Silakan lengkapi dan simpan terlebih dahulu.',
+      });
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: config.auth,
+    });
+
+    await transporter.verify();
+
+    await transporter.sendMail({
+      from: config.from,
+      to: targetEmail,
+      subject: 'Test Email - LMS Bisnis SMTP Configuration',
+      html: `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; padding: 24px; background-color: #0f172a; color: #f8fafc;">
+          <div style="max-width: 500px; margin: 0 auto; background: #1e293b; padding: 28px; border-radius: 12px; border: 1px solid #334155;">
+            <h2 style="color: #818cf8; margin-top: 0;">Pengujian Email Berhasil! 🎉</h2>
+            <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+              Konfigurasi SMTP dan App Password Anda di LMS Bisnis telah terhubung dengan sempurna dan siap digunakan untuk fitur Reset Password.
+            </p>
+            <p style="font-size: 12px; color: #94a3b8; margin-top: 20px;">
+              Waktu pengujian: ${new Date().toLocaleString('id-ID')}
+            </p>
+          </div>
+        </div>
+      `,
+    });
+
+    res.json({ success: true, message: `Email uji coba berhasil dikirim ke ${targetEmail}` });
+  } catch (err) {
+    console.error('SMTP test error:', err);
+    res.status(400).json({ success: false, message: `Gagal mengirim email: ${err.message}` });
+  }
+});
+
+// ============================================
 // ROUTE MOUNTING & ERROR HANDLERS
 // ============================================
 app.use('/api/auth', authRouter);
@@ -999,6 +1297,7 @@ app.use('/api/materials', materialsRouter);
 app.use('/api/progress', progressRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/stats', statsRouter);
+app.use('/api/settings', settingsRouter);
 
 // Health check
 app.get('/', (req, res) => {

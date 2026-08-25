@@ -66,7 +66,28 @@ CREATE TABLE IF NOT EXISTS password_resets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Email Settings table
+CREATE TABLE IF NOT EXISTS email_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    smtp_host VARCHAR(255) DEFAULT 'smtp.gmail.com',
+    smtp_port INT DEFAULT 465,
+    smtp_secure BOOLEAN DEFAULT TRUE,
+    smtp_user VARCHAR(255) DEFAULT '',
+    app_password VARCHAR(255) DEFAULT '',
+    sender_name VARCHAR(255) DEFAULT 'LMS Bisnis',
+    sender_email VARCHAR(255) DEFAULT '',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Default email settings row
+INSERT INTO email_settings (id, smtp_host, smtp_port, smtp_secure, smtp_user, app_password, sender_name, sender_email)
+VALUES (1, 'smtp.gmail.com', 465, TRUE, 'sampurdi@gmail.com', 'igfm raoe ovlj qsjm', 'LMS Bisnis', 'sampurdi@gmail.com')
+ON DUPLICATE KEY UPDATE id = id;
+
+
 -- ============================================
+
 -- Sample Data
 -- ============================================
 
