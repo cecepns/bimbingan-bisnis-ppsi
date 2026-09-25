@@ -1,14 +1,18 @@
 {
   "name": "ppsi-mobile",
-  "version": "1.0.0",
+  "version": "1.3.1",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "build:apk": "eas build --platform android --profile preview",
+    "build:bundle": "eas build --platform android --profile production",
     "build:apk:local": "expo prebuild --platform android --no-install && cd android && ./gradlew assembleRelease",
-    "generate:assets": "node scripts/generate-assets.mjs"
+    "build:bundle:local": "cd android && ./gradlew bundleRelease",
+    "generate:assets": "node scripts/generate-assets.mjs",
+    "generate:store-assets": "node scripts/generate-store-assets.mjs",
+    "generate:all-assets": "node scripts/generate-all-formfactors.mjs"
   },
   "dependencies": {
     "expo": "~52.0.46",
