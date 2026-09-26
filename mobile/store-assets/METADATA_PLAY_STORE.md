@@ -142,30 +142,62 @@ Semua file aset telah dibuat dan dikelompokkan dengan rapi di:
 
 ---
 
-## 🚀 Petunjuk Upload Rilis Baru (Menyelesaikan Masalah API 36 & 16 KB)
+## 🚀 Petunjuk Upload Rilis Baru (Menyelesaikan Masalah API 36 & 16 KB Page Size)
 
-Peringatan target API 36 dan ukuran halaman memori 16 KB muncul karena rilis yang saat ini aktif di jalur produksi Play Store masih versi lama (API 35). Rilis update baru tidak sempat aktif karena pengajuan sebelumnya tertahan penolakan metadata.
+### 🔍 Analisis Penyebab Error 16 KB pada Version Code 6:
+Pesan error dari Google Play Console:
+> *"Aplikasi Anda tidak mendukung ukuran halaman memori 16 KB. [Pelajari Lebih Lanjut](https://developer.android.com/guide/practices/page-sizes)"*
 
-File App Bundle baru (`.aab`) telah berhasil di-build dan siap diunggah:
-* **File AAB:** `mobile/store-assets/release/app-release-v1.3.1-build6.aab`  
-  *(Atau file asli di: `mobile/android/app/build/outputs/bundle/release/app-release.aab`)*
+Penyebab teknisnya adalah React Native versi 0.76 (bawaan Expo SDK 52) masih menyertakan *prebuilt native binary* (`.so`) yang dikompilasi dengan batas *page alignment* 4 KB (`0x1000`), antara lain `libreactnative.so`, `libhermes.so`, `libfbjni.so`, dan `libc++_shared.so`. Google Play secara ketat memindai header ELF LOAD segmen dari pustaka 64-bit (`arm64-v8a` & `x86_64`) dan menolak AAB jika terdapat *native library* yang belum 16 KB aligned.
+
+### ✅ Solusi yang Diterapkan pada Version Code 7:
+1. **Upgrade Arsitektur ke React Native 0.79.6 & Expo SDK 53:**  
+   Pustaka native React Native versi 0.79 ke atas telah dikompilasi resmi oleh Meta/Google dengan dukungan penuh memori 16 KB page size (`0x4000`).
+2. **Target Android 16 (API Level 36):**  
+   Dikonfigurasi dengan `compileSdkVersion 36`, `targetSdkVersion 36`, dan `buildToolsVersion 36.0.0`.
+3. **Verifikasi Mandiri via LLVM `readelf -l` (NDK 27):**  
+   Seluruh 28 file pustaka `.so` 64-bit (`arm64-v8a` dan `x86_64`) di dalam file AAB telah diverifikasi 100% memiliki alignment `0x4000` (16 KB):
+   - `libappmodules.so` -> `0x4000` (16 KB)
+   - `libc++_shared.so` -> `0x4000` (16 KB)
+   - `libexpo-modules-core.so` -> `0x4000` (16 KB)
+   - `libfbjni.so` -> `0x4000` (16 KB)
+   - `libgifimage.so` -> `0x4000` (16 KB)
+   - `libhermes.so` -> `0x4000` (16 KB)
+   - `libhermestooling.so` -> `0x4000` (16 KB)
+   - `libimagepipeline.so` -> `0x4000` (16 KB)
+   - `libjsi.so` -> `0x4000` (16 KB)
+   - `libnative-filters.so` -> `0x4000` (16 KB)
+   - `libnative-imagetranscoder.so` -> `0x4000` (16 KB)
+   - `libreact_codegen_safeareacontext.so` -> `0x4000` (16 KB)
+   - `libreactnative.so` -> `0x4000` (16 KB)
+   - `libstatic-webp.so` -> `0x4000` (16 KB)
+
+---
+
+### 📦 Informasi File AAB Siap Upload:
+* **File AAB:** [`mobile/store-assets/release/app-release-v1.3.2-build7.aab`](file:///Users/cecep/Desktop/SP%20-%20New/bisnis-ppsi/mobile/store-assets/release/app-release-v1.3.2-build7.aab)  
+  *(Atau file sumber di: `mobile/android/app/build/outputs/bundle/release/app-release.aab`)*
 * **Target SDK:** 36 (Android 16)
 * **Compile SDK:** 36
 * **Build Tools:** 36.0.0
-* **NDK:** 27.1.12297006 (mendukung arsitektur 16 KB page size)
-* **Version Code:** `6`
-* **Version Name:** `1.3.1`
+* **NDK:** 27.1.12297006
+* **Version Code:** `7` (menggantikan versi 6 yang ditolak)
+* **Version Name:** `1.3.2`
+* **Keystore:** Signed resmi dengan `release.keystore` (alias: `ppsi-release`)
+
+---
 
 ### Langkah Upload di Play Console:
-1. Di Google Play Console, buka menu **Rilis (Release)** > **Produksi (Production)** (atau jalur tempat rilis Anda berada).
+1. Di Google Play Console, buka menu **Rilis (Release)** > **Produksi (Production)** (atau jalur rilis aktif Anda).
 2. Klik tombol **Buat rilis baru (Create new release)** di kanan atas.
-3. Pada bagian **App bundle**, unggah file `app-release-v1.3.1-build6.aab`.
+3. Pada bagian **App bundle**, unggah file:  
+   `mobile/store-assets/release/app-release-v1.3.2-build7.aab`
 4. Berikan Catatan Rilis (Release Notes):
    ```text
-   • Pembaruan kepatuhan sistem Android 16 (API 36).
-   • Peningkatan kompatibilitas memori 16 KB dan stabilitas aplikasi.
-   • Pembaruan modul pembelajaran dan optimasi navigasi aplikasi.
+   • Dukungan penuh arsitektur memori 16 KB page size sesuai standar Google Play.
+   • Pembaruan kepatuhan sistem operasi Android 16 (API Level 36).
+   • Peningkatan stabilitas aplikasi dan performa modul pembelajaran.
    ```
 5. Klik **Berikutnya (Next)**, tinjau ringkasan rilis, lalu klik **Mulai peluncuran ke Produksi (Start rollout to Production)**.
 6. Kirim rilis untuk ditinjau bersamaan dengan pembaruan metadata listing di atas.
-7. Setelah rilis disetujui, Google Play otomatis mengirim notifikasi bahwa aplikasi telah memenuhi seluruh kebijakan dan peringatan API 36 & 16 KB akan hilang secara permanen.
+7. Setelah rilis disetujui, Google Play otomatis menghapus seluruh peringatan error (Metadata, Target API 36, dan 16 KB Page Size) secara tuntas.
