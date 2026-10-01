@@ -28,6 +28,18 @@ export const formatDuration = (seconds) => {
   return `${m}m ${s}s`;
 };
 
+export const formatDurationDisplay = (seconds, minutes) => {
+  const totalSec = seconds != null && Number(seconds) > 0
+    ? Number(seconds)
+    : (minutes ? Number(minutes) * 60 : 0);
+  if (!totalSec || totalSec <= 0) return '0 detik';
+  if (totalSec < 60) return `${totalSec} detik`;
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  if (s === 0) return `${m} menit`;
+  return `${m} menit ${s} detik`;
+};
+
 export const getProgressPercent = (completed, total) => {
   if (!total) return 0;
   return Math.round((completed / total) * 100);

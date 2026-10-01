@@ -142,6 +142,43 @@ Semua file aset telah dibuat dan dikelompokkan dengan rapi di:
 
 ---
 
+## 🔑 Kredensial Pengujian Akun (App Access / Detail Login)
+
+Untuk memenuhi persyaratan kebijakan Google Play mengenai **Akses Aplikasi (App Access)**:
+1. Masuk ke **Kebijakan (Policy)** > **Konten aplikasi (App content)** > **Akses aplikasi (App access)**.
+2. Pilih opsi: **"Semua atau beberapa fungsi dibatasi" (All or some functionality is restricted)**.
+3. Tambahkan 2 set akun berikut:
+
+### Kredensial 1: Admin Account
+* **Name:** `Admin Login`
+* **Username, email address, or phone number:** `admin@lmsbisnis.com`
+* **Password:** `admin123`
+* **Any other information required to access your app:**
+  ```text
+  No two-factor authentication (2FA), OTP, or biometric verification is required.
+  Instructions:
+  1. Open the app to view the login screen.
+  2. Enter the Email address and Password provided above.
+  3. Tap the "Masuk" (Sign In) button.
+  This account grants full access to the admin dashboard, course management, user lists, and learning modules for policy review.
+  ```
+
+### Kredensial 2: User / Member Account
+* **Name:** `User account`
+* **Username, email address, or phone number:** `cecepns29@gmail.com`
+* **Password:** `cecep123`
+* **Any other information required to access your app:**
+  ```text
+  No two-factor authentication (2FA), OTP, or biometric verification is required.
+  Instructions:
+  1. Open the app to view the login screen.
+  2. Enter the Email address and Password provided above.
+  3. Tap the "Masuk" (Sign In) button.
+  This regular member account provides full access to student learning modules, video lessons, and progress tracking for review.
+  ```
+
+---
+
 ## 🚀 Petunjuk Upload Rilis Baru (Menyelesaikan Masalah API 36 & 16 KB Page Size)
 
 ### 🔍 Analisis Penyebab Error 16 KB pada Version Code 6:

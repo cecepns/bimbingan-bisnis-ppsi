@@ -37,6 +37,7 @@ CREATE TABLE `materials` (
   `youtube_url` varchar(500) DEFAULT NULL,
   `file_attachment` varchar(255) DEFAULT NULL,
   `duration_minutes` int(11) DEFAULT 0,
+  `duration_seconds` int(11) DEFAULT 0,
   `order_index` int(11) DEFAULT 0,
   `status` enum('publish','draft') DEFAULT 'draft',
   `view_count` int(11) DEFAULT 0,
@@ -48,11 +49,11 @@ CREATE TABLE `materials` (
 -- Dumping data untuk tabel `materials`
 --
 
-INSERT INTO `materials` (`id`, `title`, `description`, `content`, `thumbnail`, `cover_image`, `youtube_url`, `file_attachment`, `duration_minutes`, `order_index`, `status`, `view_count`, `created_at`, `updated_at`) VALUES
-(1, 'Pengenalan Bimbingan Bisnis', 'Materi pertama untuk memulai perjalanan belajar bisnis Anda.', '<h2>Selamat Datang!</h2><p>Ini adalah materi pertama dalam program Bimbingan Bisnis kami. Anda akan mempelajari dasar-dasar memulai bisnis yang sukses.</p>', NULL, NULL, NULL, NULL, 10, 1, 'publish', 10, '2026-07-10 08:24:42', '2026-07-10 11:43:27'),
-(2, 'Riset Pasar dan Target Customer', 'Pelajari cara melakukan riset pasar yang efektif untuk bisnis Anda.', '<h2>Riset Pasar</h2><p>Memahami target customer adalah kunci kesuksesan bisnis Anda.</p>', NULL, NULL, NULL, NULL, 15, 2, 'publish', 0, '2026-07-10 08:24:42', '2026-07-10 08:24:42'),
-(3, 'Membangun Brand Identity', 'Cara membangun identitas brand yang kuat dan berkesan.', '<h2>Brand Identity</h2><p>Brand bukan hanya logo, tetapi keseluruhan pengalaman customer dengan bisnis Anda.</p>', NULL, NULL, NULL, NULL, 20, 3, 'publish', 0, '2026-07-10 08:24:42', '2026-07-10 08:24:42'),
-(6, 'Pengenalan Bimbingan Bisnis (Copy)', 'Materi pertama untuk memulai perjalanan belajar bisnis Anda.', '<h2>Selamat Datang!</h2><p>Ini adalah materi pertama dalam program Bimbingan Bisnis kami. Anda akan mempelajari dasar-dasar memulai bisnis yang sukses.</p>', NULL, NULL, NULL, NULL, 10, 4, 'draft', 0, '2026-07-11 21:05:09', '2026-07-11 21:05:09');
+INSERT INTO `materials` (`id`, `title`, `description`, `content`, `thumbnail`, `cover_image`, `youtube_url`, `file_attachment`, `duration_minutes`, `duration_seconds`, `order_index`, `status`, `view_count`, `created_at`, `updated_at`) VALUES
+(1, 'Pengenalan Bimbingan Bisnis', 'Materi pertama untuk memulai perjalanan belajar bisnis Anda.', '<h2>Selamat Datang!</h2><p>Ini adalah materi pertama dalam program Bimbingan Bisnis kami. Anda akan mempelajari dasar-dasar memulai bisnis yang sukses.</p>', NULL, NULL, NULL, NULL, 10, 600, 1, 'publish', 10, '2026-07-10 08:24:42', '2026-07-10 11:43:27'),
+(2, 'Riset Pasar dan Target Customer', 'Pelajari cara melakukan riset pasar yang efektif untuk bisnis Anda.', '<h2>Riset Pasar</h2><p>Memahami target customer adalah kunci kesuksesan bisnis Anda.</p>', NULL, NULL, NULL, NULL, 15, 900, 2, 'publish', 0, '2026-07-10 08:24:42', '2026-07-10 08:24:42'),
+(3, 'Membangun Brand Identity', 'Cara membangun identitas brand yang kuat dan berkesan.', '<h2>Brand Identity</h2><p>Brand bukan hanya logo, tetapi keseluruhan pengalaman customer dengan bisnis Anda.</p>', NULL, NULL, NULL, NULL, 20, 1200, 3, 'publish', 0, '2026-07-10 08:24:42', '2026-07-10 08:24:42'),
+(6, 'Pengenalan Bimbingan Bisnis (Copy)', 'Materi pertama untuk memulai perjalanan belajar bisnis Anda.', '<h2>Selamat Datang!</h2><p>Ini adalah materi pertama dalam program Bimbingan Bisnis kami. Anda akan mempelajari dasar-dasar memulai bisnis yang sukses.</p>', NULL, NULL, NULL, NULL, 10, 600, 4, 'draft', 0, '2026-07-11 21:05:09', '2026-07-11 21:05:09');
 
 -- --------------------------------------------------------
 

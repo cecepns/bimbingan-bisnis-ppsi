@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { BookOpen, CheckCircle, Lock, PlayCircle, ArrowRight, Loader2, TrendingUp } from 'lucide-react';
 import { progressService } from '../../utils/request';
 import { useAuth } from '../../contexts/AuthContext';
-import { getProgressPercent } from '../../utils/helpers';
+import { getProgressPercent, formatDurationDisplay } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 
 const MemberDashboard = () => {
@@ -124,7 +124,7 @@ const MemberDashboard = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.title}</p>
-                  <p className="text-xs text-gray-500">{item.duration_minutes} menit</p>
+                  <p className="text-xs text-gray-500">{formatDurationDisplay(item.duration_seconds, item.duration_minutes)}</p>
                 </div>
                 <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
                   item.status === 'completed' ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/30' :

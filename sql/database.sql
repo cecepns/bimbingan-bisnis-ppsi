@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS materials (
     youtube_url VARCHAR(500) DEFAULT NULL,
     file_attachment VARCHAR(255) DEFAULT NULL,
     duration_minutes INT DEFAULT 0,
+    duration_seconds INT DEFAULT 0,
     order_index INT DEFAULT 0,
     status ENUM('publish', 'draft') DEFAULT 'draft',
     view_count INT DEFAULT 0,
@@ -94,6 +95,11 @@ ON DUPLICATE KEY UPDATE id = id;
 -- Default Admin (password: admin123)
 INSERT INTO users (name, email, whatsapp, password, role) VALUES
 ('Administrator', 'admin@lmsbisnis.com', '081234567890', '$2b$10$5YMnGbgUz0H8bEAWPgXdj.v5TKlD1YcA4lOCAa9dxhQ8jYQW6BG/S', 'admin')
+ON DUPLICATE KEY UPDATE id = id;
+
+-- Sample Member User (password: cecep123)
+INSERT INTO users (name, email, whatsapp, password, role) VALUES
+('Member Demo', 'cecepns29@gmail.com', '081234567891', '$2a$10$.zXBVmkZ4RvvSdBVJwFOtOQf4VI.hrfyqZGtNZb9w43PhaJyrv7D.', 'member')
 ON DUPLICATE KEY UPDATE id = id;
 
 -- Sample Materials

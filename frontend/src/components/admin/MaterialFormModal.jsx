@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import Modal from '../ui/Modal';
 import { materialsService } from '../../utils/request';
-import { getImageUrl, getYoutubeEmbedUrl } from '../../utils/helpers';
+import { getImageUrl, getYoutubeEmbedUrl, formatDurationDisplay } from '../../utils/helpers';
 
 const quillModules = {
   toolbar: {
@@ -29,6 +29,8 @@ const MaterialFormModal = ({ isOpen, onClose, editData, onSuccess }) => {
   const [thumbnailPreview, setThumbnailPreview] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [fileAttachment, setFileAttachment] = useState(null);
+  const [durationValue, setDurationValue] = useState(10);
+  const [durationUnit, setDurationUnit] = useState('minutes');
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm();
   const youtubeUrl = watch('youtube_url');
@@ -39,16 +41,29 @@ const MaterialFormModal = ({ isOpen, onClose, editData, onSuccess }) => {
         title: editData.title,
         description: editData.description,
         youtube_url: editData.youtube_url,
-        duration_minutes: editData.duration_minutes,
         order_index: editData.order_index,
         status: editData.status,
       });
       setContent(editData.content || '');
       setThumbnailPreview(editData.thumbnail ? getImageUrl(`thumbnails/${editData.thumbnail}`) : null);
+
+      const sec = editData.duration_seconds != null && Number(editData.duration_seconds) > 0
+        ? Number(editData.duration_seconds)
+        : (editData.duration_minutes ? Number(editData.duration_minutes) * 60 : 600);
+
+      if (sec < 60 || sec % 60 !== 0) {
+        setDurationUnit('seconds');
+        setDurationValue(sec);
+      } else {
+        setDurationUnit('minutes');
+        setDurationValue(sec / 60);
+      }
     } else {
-      reset({ status: 'draft', duration_minutes: 10 });
+      reset({ status: 'draft' });
       setContent('');
       setThumbnailPreview(null);
+      setDurationUnit('minutes');
+      setDurationValue(10);
     }
   }, [editData, reset]);
 
@@ -57,8 +72,18 @@ const MaterialFormModal = ({ isOpen, onClose, editData, onSuccess }) => {
     try {
       const formData = new FormData();
       Object.entries(data).forEach(([key, value]) => {
-        if (value !== undefined && value !== '') formData.append(key, value);
+        if (value !== undefined && value !== '' && key !== 'duration_minutes' && key !== 'duration_seconds') {
+          formData.append(key, value);
+        }
       });
+
+      const numVal = parseFloat(durationValue) || 1;
+      const totalSeconds = durationUnit === 'seconds'
+        ? Math.round(numVal)
+        : Math.round(numVal * 60);
+
+      formData.append('duration_seconds', totalSeconds);
+      formData.append('duration_minutes', Math.max(1, Math.round(totalSeconds / 60)));
       formData.append('content', content);
       if (thumbnailFile) formData.append('thumbnail', thumbnailFile);
       if (fileAttachment) formData.append('file_attachment', fileAttachment);
@@ -109,12 +134,39 @@ const MaterialFormModal = ({ isOpen, onClose, editData, onSuccess }) => {
             {/* Duration & Order */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm text-gray-700 dark:text-gray-400 mb-2">Durasi (menit) *</label>
-                <div className="relative">
-                  <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                  <input type="number" min="1" className="input-field pl-9"
-                    {...register('duration_minutes', { required: true, min: 1 })} />
+                <label className="block text-sm text-gray-700 dark:text-gray-400 mb-2">Durasi Minimum Belajar *</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                    <input
+                      type="number"
+                      step="any"
+                      min={durationUnit === 'seconds' ? '1' : '0.01'}
+                      value={durationValue}
+                      onChange={(e) => setDurationValue(e.target.value)}
+                      className="input-field pl-9"
+                      placeholder={durationUnit === 'seconds' ? 'Contoh: 30' : 'Contoh: 0.5 atau 10'}
+                      required
+                    />
+                  </div>
+                  <select
+                    value={durationUnit}
+                    onChange={(e) => setDurationUnit(e.target.value)}
+                    className="input-field w-28 bg-gray-100 dark:bg-gray-800"
+                  >
+                    <option value="minutes">Menit</option>
+                    <option value="seconds">Detik</option>
+                  </select>
                 </div>
+                <p className="text-xs text-gray-500 mt-1.5 flex items-center justify-between">
+                  <span>Waktu belajar minimum:</span>
+                  <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                    {formatDurationDisplay(
+                      durationUnit === 'seconds' ? Math.round(Number(durationValue) || 0) : Math.round((Number(durationValue) || 0) * 60),
+                      0
+                    )}
+                  </span>
+                </p>
               </div>
               <div>
                 <label className="block text-sm text-gray-700 dark:text-gray-400 mb-2">Nomor Urut</label>

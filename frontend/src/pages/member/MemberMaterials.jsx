@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Lock, CheckCircle, PlayCircle, Clock, BookOpen, ArrowRight } from 'lucide-react';
+import { Search, Lock, CheckCircle, PlayCircle, Clock, BookOpen, ArrowRight, Loader2 } from 'lucide-react';
 import { materialsService } from '../../utils/request';
 import EmptyState from '../../components/ui/EmptyState';
-import { getImageUrl, debounce } from '../../utils/helpers';
+import { getImageUrl, debounce, formatDurationDisplay } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 import { CardSkeleton } from '../../components/ui/Skeleton';
 
@@ -17,33 +17,55 @@ const StatusIcon = ({ status }) => {
 const MemberMaterials = () => {
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
 
-  const fetchMaterials = useCallback(async (reset = false) => {
-    setLoading(true);
+  const fetchMaterials = useCallback(async (targetPage = 1, isReset = false) => {
+    if (isReset || targetPage === 1) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
     try {
-      const p = reset ? 1 : page;
-      const res = await materialsService.getAll({ page: p, limit: 12, search });
-      setMaterials(prev => reset ? res.data : [...prev, ...res.data]);
-      setHasMore(p < res.pagination.totalPages);
-      if (!reset) setPage(p + 1);
+      const res = await materialsService.getAll({ page: targetPage, limit: 10, search });
+      const newItems = res.data || [];
+      const totalCount = res.pagination?.total || 0;
+      const totalPages = res.pagination?.totalPages || 1;
+
+      setMaterials(prev => {
+        if (isReset || targetPage === 1) return newItems;
+        const existingIds = new Set(prev.map(m => m.id));
+        const filteredNew = newItems.filter(m => !existingIds.has(m.id));
+        return [...prev, ...filteredNew];
+      });
+
+      setPage(targetPage);
+      setTotal(totalCount);
+      setHasMore(targetPage < totalPages);
     } catch (err) {
       toast.error(err.message);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [search, page]);
+  }, [search]);
 
   useEffect(() => {
-    setPage(1);
-    fetchMaterials(true);
+    fetchMaterials(1, true);
   }, [search]);
 
   const debouncedSearch = useCallback(
     debounce((val) => setSearch(val), 300), []
   );
+
+  const handleLoadMore = () => {
+    if (!loading && !loadingMore && hasMore) {
+      fetchMaterials(page + 1, false);
+    }
+  };
 
   const getStatusBanner = (status) => {
     if (status === 'completed') return 'border-green-500/40 shadow-green-500/10 shadow-lg';
@@ -54,9 +76,16 @@ const MemberMaterials = () => {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Semua Materi</h1>
-        <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">Pelajari materi secara berurutan</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Semua Materi</h1>
+          <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">Pelajari materi secara berurutan</p>
+        </div>
+        {total > 0 && (
+          <div className="text-xs sm:text-sm font-medium px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 self-start sm:self-auto">
+            Menampilkan {materials.length > 0 ? `1 - ${materials.length}` : '0'} dari {total} materi
+          </div>
+        )}
       </div>
 
       {/* Search */}
@@ -78,7 +107,7 @@ const MemberMaterials = () => {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {materials.map((mat) => {
-              const isLocked = mat.progress_status === 'locked' || !mat.progress_status;
+              const isLocked = mat.progress_status === 'locked' || (!mat.progress_status && mat.order_index > 1);
               return (
                 <Link
                   key={mat.id}
@@ -128,7 +157,7 @@ const MemberMaterials = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                         <Clock size={12} />
-                        {mat.duration_minutes} menit
+                        {formatDurationDisplay(mat.duration_seconds, mat.duration_minutes)}
                       </div>
                       {!isLocked && (
                         <span className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 group-hover:gap-2 transition-all">
@@ -145,9 +174,19 @@ const MemberMaterials = () => {
 
           {hasMore && (
             <div className="text-center mt-8">
-              <button onClick={() => fetchMaterials(false)} disabled={loading}
-                className="btn-secondary">
-                {loading ? 'Memuat...' : 'Muat Lebih Banyak'}
+              <button
+                onClick={handleLoadMore}
+                disabled={loading || loadingMore}
+                className="btn-secondary inline-flex items-center gap-2 mx-auto"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Memuat Materi...</span>
+                  </>
+                ) : (
+                  'Muat Lebih Banyak'
+                )}
               </button>
             </div>
           )}

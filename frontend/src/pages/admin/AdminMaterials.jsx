@@ -7,7 +7,7 @@ import Modal from '../../components/ui/Modal';
 import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
 import { TableSkeleton } from '../../components/ui/Skeleton';
-import { formatDate, getImageUrl, debounce } from '../../utils/helpers';
+import { formatDate, getImageUrl, debounce, formatDurationDisplay } from '../../utils/helpers';
 import MaterialFormModal from '../../components/admin/MaterialFormModal';
 
 const AdminMaterials = () => {
@@ -164,7 +164,7 @@ const AdminMaterials = () => {
                       </div>
                     </td>
                     <td>
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{mat.duration_minutes} menit</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{formatDurationDisplay(mat.duration_seconds, mat.duration_minutes)}</span>
                     </td>
                     <td>
                       <Badge status={mat.status}>{mat.status === 'publish' ? 'Publish' : 'Draft'}</Badge>

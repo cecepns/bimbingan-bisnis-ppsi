@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, CheckCircle, Lock, Download, Timer, Loader2, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { materialsService, progressService } from '../../utils/request';
-import { getImageUrl, getYoutubeEmbedUrl } from '../../utils/helpers';
+import { getImageUrl, getYoutubeEmbedUrl, formatDurationDisplay } from '../../utils/helpers';
 
 const formatTime = (seconds) => {
   const m = Math.floor(seconds / 60);
@@ -24,7 +24,9 @@ const MaterialDetailPage = () => {
   const intervalRef = useRef(null);
   const startTimeRef = useRef(Date.now());
 
-  const minSeconds = material ? material.duration_minutes * 60 : 0;
+  const minSeconds = material
+    ? (material.duration_seconds > 0 ? material.duration_seconds : material.duration_minutes * 60)
+    : 0;
   const timerComplete = timeSpent >= minSeconds;
   const progress = Math.min(100, (timeSpent / (minSeconds || 1)) * 100);
 
@@ -78,7 +80,7 @@ const MaterialDetailPage = () => {
       if (res.data?.nextUnlocked) {
         toast.success(`Materi "${res.data.nextUnlocked.title}" telah terbuka!`, { duration: 4000 });
       }
-      navigate('/member');
+      navigate('/member/materials');
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -123,7 +125,7 @@ const MaterialDetailPage = () => {
           <span className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-xs font-bold">
             {material.order_index}
           </span>
-          <span className="flex items-center gap-1"><Clock size={14} /> {material.duration_minutes} menit</span>
+          <span className="flex items-center gap-1"><Clock size={14} /> {formatDurationDisplay(material.duration_seconds, material.duration_minutes)}</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{material.title}</h1>
         {material.description && (
@@ -146,7 +148,7 @@ const MaterialDetailPage = () => {
             />
           </div>
           <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-            <span>{timerComplete ? '✓ Waktu belajar minimum tercapai' : `Minimal ${material.duration_minutes} menit`}</span>
+            <span>{timerComplete ? '✓ Waktu belajar minimum tercapai' : `Minimal ${formatDurationDisplay(material.duration_seconds, material.duration_minutes)}`}</span>
             <span>{formatTime(minSeconds)}</span>
           </div>
         </div>

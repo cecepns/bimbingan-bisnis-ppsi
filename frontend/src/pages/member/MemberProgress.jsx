@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { progressService } from '../../utils/request';
-import { getProgressPercent } from '../../utils/helpers';
+import { getProgressPercent, formatDurationDisplay } from '../../utils/helpers';
 import { CheckCircle, Lock, PlayCircle, Clock, TrendingUp, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -91,7 +91,7 @@ const MemberProgress = () => {
                   {item.title}
                 </Link>
                 <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                  <span className="flex items-center gap-1"><Clock size={10} /> {item.duration_minutes} menit</span>
+                  <span className="flex items-center gap-1"><Clock size={10} /> {formatDurationDisplay(item.duration_seconds, item.duration_minutes)}</span>
                   {item.time_spent > 0 && (
                     <span>Waktu belajar: {Math.floor(item.time_spent / 60)}m {item.time_spent % 60}s</span>
                   )}

@@ -83,6 +83,17 @@ const initDatabase = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Ensure duration_seconds column exists in materials table
+    try {
+      const [matCols] = await db.query("SHOW COLUMNS FROM materials LIKE 'duration_seconds'");
+      if (matCols.length === 0) {
+        await db.query("ALTER TABLE materials ADD COLUMN duration_seconds INT DEFAULT 0 AFTER file_attachment");
+      }
+      await db.query("UPDATE materials SET duration_seconds = COALESCE(duration_minutes, 0) * 60 WHERE duration_seconds = 0 OR duration_seconds IS NULL");
+    } catch (colErr) {
+      console.warn('Materials duration_seconds migration notice:', colErr.message);
+    }
   } catch (err) {
     console.warn('Database auto-init notice:', err.message);
   }
@@ -503,8 +514,8 @@ authRouter.post('/reset-password', async (req, res) => {
 
 const ensureUserProgress = async (userId) => {
   try {
-    // Get all published materials
-    const [materials] = await db.query('SELECT id, order_index FROM materials WHERE status = "publish" ORDER BY order_index ASC');
+    // Get all published materials sorted deterministically
+    const [materials] = await db.query('SELECT id, order_index FROM materials WHERE status = "publish" ORDER BY order_index ASC, id ASC');
     if (materials.length === 0) return;
 
     // Get current progress for the user
@@ -513,22 +524,40 @@ const ensureUserProgress = async (userId) => {
 
     for (let i = 0; i < materials.length; i++) {
       const mat = materials[i];
-      if (!progressMap.has(mat.id)) {
-        let status = 'locked';
-        if (i === 0) {
-          status = 'available';
+      const currentStatus = progressMap.get(mat.id);
+
+      if (i === 0) {
+        // First material must always be at least available
+        if (!currentStatus || currentStatus === 'locked') {
+          await db.query(
+            'INSERT INTO user_progress (user_id, material_id, status) VALUES (?, ?, "available") ON DUPLICATE KEY UPDATE status = IF(status = "locked", "available", status)',
+            [userId, mat.id]
+          );
+          progressMap.set(mat.id, currentStatus === 'completed' || currentStatus === 'in_progress' ? currentStatus : 'available');
+        }
+      } else {
+        const prevMat = materials[i - 1];
+        const prevStatus = progressMap.get(prevMat.id);
+
+        if (prevStatus === 'completed') {
+          // If previous material is completed, this material must be at least available
+          if (!currentStatus || currentStatus === 'locked') {
+            await db.query(
+              'INSERT INTO user_progress (user_id, material_id, status) VALUES (?, ?, "available") ON DUPLICATE KEY UPDATE status = IF(status = "locked", "available", status)',
+              [userId, mat.id]
+            );
+            progressMap.set(mat.id, currentStatus === 'completed' || currentStatus === 'in_progress' ? currentStatus : 'available');
+          }
         } else {
-          const prevMat = materials[i - 1];
-          const prevStatus = progressMap.get(prevMat.id);
-          if (prevStatus === 'completed') {
-            status = 'available';
+          // Previous material is not completed yet
+          if (!currentStatus) {
+            await db.query(
+              'INSERT INTO user_progress (user_id, material_id, status) VALUES (?, ?, "locked") ON DUPLICATE KEY UPDATE status = status',
+              [userId, mat.id]
+            );
+            progressMap.set(mat.id, 'locked');
           }
         }
-        await db.query(
-          'INSERT INTO user_progress (user_id, material_id, status) VALUES (?, ?, ?)',
-          [userId, mat.id, status]
-        );
-        progressMap.set(mat.id, status);
       }
     }
   } catch (err) {
@@ -569,7 +598,7 @@ materialsRouter.get('/', authMiddleware, async (req, res) => {
     const [countResult] = await db.query(countQuery, params);
     const total = countResult[0].total;
 
-    let dataQuery = `SELECT m.* FROM materials m ${whereClause} ORDER BY m.order_index ASC LIMIT ? OFFSET ?`;
+    let dataQuery = `SELECT m.* FROM materials m ${whereClause} ORDER BY m.order_index ASC, m.id ASC LIMIT ? OFFSET ?`;
     params.push(Number(limit), Number(offset));
     const [materials] = await db.query(dataQuery, params);
 
@@ -620,6 +649,10 @@ materialsRouter.get('/:id', authMiddleware, async (req, res) => {
       );
       material.progress = prog[0] || null;
 
+      if (prog.length > 0 && prog[0].status === 'locked') {
+        return res.status(403).json({ success: false, message: 'Materi ini masih terkunci. Selesaikan materi sebelumnya terlebih dahulu.' });
+      }
+
       if (prog.length > 0 && prog[0].status === 'available') {
         await db.query(
           'UPDATE user_progress SET status = "in_progress", start_time = NOW() WHERE user_id = ? AND material_id = ?',
@@ -643,14 +676,22 @@ materialsRouter.post('/', authMiddleware, adminMiddleware, uploadMaterial.fields
   { name: 'cover_image', maxCount: 1 },
   { name: 'file_attachment', maxCount: 1 }
 ]), async (req, res) => {
-  const { title, description, content, youtube_url, duration_minutes, order_index, status } = req.body;
+  const { title, description, content, youtube_url, duration_minutes, duration_seconds, order_index, status } = req.body;
   if (!title) {
     return res.status(400).json({ success: false, message: 'Title is required' });
   }
-  const duration = Number(duration_minutes);
-  if (isNaN(duration) || duration <= 0) {
-    return res.status(400).json({ success: false, message: 'Duration must be a positive integer' });
+
+  let durationSec = Number(duration_seconds);
+  if (isNaN(durationSec) || durationSec <= 0) {
+    const durationMin = Number(duration_minutes);
+    if (!isNaN(durationMin) && durationMin > 0) {
+      durationSec = Math.round(durationMin * 60);
+    } else {
+      return res.status(400).json({ success: false, message: 'Durasi harus berupa angka positif' });
+    }
   }
+  const durationMin = Math.max(1, Math.round(durationSec / 60));
+
   const thumbnail = req.files?.thumbnail?.[0]?.filename || null;
   const cover_image = req.files?.cover_image?.[0]?.filename || null;
   const file_attachment = req.files?.file_attachment?.[0]?.filename || null;
@@ -663,22 +704,14 @@ materialsRouter.post('/', authMiddleware, adminMiddleware, uploadMaterial.fields
     }
 
     const [result] = await db.query(
-      'INSERT INTO materials (title, description, content, thumbnail, cover_image, youtube_url, file_attachment, duration_minutes, order_index, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [title, description, content, thumbnail, cover_image, youtube_url, file_attachment, duration_minutes, orderIdx, status || 'draft']
+      'INSERT INTO materials (title, description, content, thumbnail, cover_image, youtube_url, file_attachment, duration_minutes, duration_seconds, order_index, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [title, description, content, thumbnail, cover_image, youtube_url, file_attachment, durationMin, durationSec, orderIdx, status || 'draft']
     );
 
     if (status === 'publish') {
       const [members] = await db.query('SELECT id FROM users WHERE role = "member"');
       for (const member of members) {
-        const [existingTotal] = await db.query(
-          'SELECT COUNT(*) as cnt FROM user_progress WHERE user_id = ?',
-          [member.id]
-        );
-        const newStatus = existingTotal[0].cnt === 0 ? 'available' : 'locked';
-        await db.query(
-          'INSERT INTO user_progress (user_id, material_id, status) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE status = status',
-          [member.id, result.insertId, newStatus]
-        );
+        await ensureUserProgress(member.id);
       }
     }
 
@@ -694,7 +727,7 @@ materialsRouter.put('/:id', authMiddleware, adminMiddleware, uploadMaterial.fiel
   { name: 'cover_image', maxCount: 1 },
   { name: 'file_attachment', maxCount: 1 },
 ]), async (req, res) => {
-  const { title, description, content, youtube_url, duration_minutes, order_index, status } = req.body;
+  const { title, description, content, youtube_url, duration_minutes, duration_seconds, order_index, status } = req.body;
 
   try {
     const [existing] = await db.query('SELECT * FROM materials WHERE id = ?', [req.params.id]);
@@ -705,10 +738,38 @@ materialsRouter.put('/:id', authMiddleware, adminMiddleware, uploadMaterial.fiel
     const cover_image = req.files?.cover_image?.[0]?.filename || mat.cover_image;
     const file_attachment = req.files?.file_attachment?.[0]?.filename || mat.file_attachment;
 
+    let durationSec = mat.duration_seconds || (mat.duration_minutes * 60);
+    if (duration_seconds !== undefined && duration_seconds !== '' && !isNaN(Number(duration_seconds))) {
+      durationSec = Number(duration_seconds);
+    } else if (duration_minutes !== undefined && duration_minutes !== '' && !isNaN(Number(duration_minutes))) {
+      durationSec = Math.round(Number(duration_minutes) * 60);
+    }
+    const durationMin = Math.max(1, Math.round(durationSec / 60));
+
     await db.query(
-      'UPDATE materials SET title = ?, description = ?, content = ?, thumbnail = ?, cover_image = ?, youtube_url = ?, file_attachment = ?, duration_minutes = ?, order_index = ?, status = ? WHERE id = ?',
-      [title || mat.title, description || mat.description, content || mat.content, thumbnail, cover_image, youtube_url || mat.youtube_url, file_attachment, duration_minutes || mat.duration_minutes, order_index || mat.order_index, status || mat.status, req.params.id]
+      'UPDATE materials SET title = ?, description = ?, content = ?, thumbnail = ?, cover_image = ?, youtube_url = ?, file_attachment = ?, duration_minutes = ?, duration_seconds = ?, order_index = ?, status = ? WHERE id = ?',
+      [
+        title || mat.title,
+        description !== undefined ? description : mat.description,
+        content !== undefined ? content : mat.content,
+        thumbnail,
+        cover_image,
+        youtube_url !== undefined ? youtube_url : mat.youtube_url,
+        file_attachment,
+        durationMin,
+        durationSec,
+        order_index !== undefined && order_index !== '' ? order_index : mat.order_index,
+        status || mat.status,
+        req.params.id
+      ]
     );
+
+    if (status === 'publish' || mat.status === 'publish') {
+      const [members] = await db.query('SELECT id FROM users WHERE role = "member"');
+      for (const member of members) {
+        await ensureUserProgress(member.id);
+      }
+    }
 
     res.json({ success: true, message: 'Material updated' });
   } catch (err) {
@@ -736,6 +797,10 @@ materialsRouter.put('/action/reorder', authMiddleware, adminMiddleware, async (r
     for (const item of orders) {
       await db.query('UPDATE materials SET order_index = ? WHERE id = ?', [item.order_index, item.id]);
     }
+    const [members] = await db.query('SELECT id FROM users WHERE role = "member"');
+    for (const member of members) {
+      await ensureUserProgress(member.id);
+    }
     res.json({ success: true, message: 'Materials reordered' });
   } catch (err) {
     console.error(err);
@@ -757,10 +822,11 @@ materialsRouter.post('/:id/duplicate', authMiddleware, adminMiddleware, async (r
     const mat = rows[0];
     const [maxOrder] = await db.query('SELECT MAX(order_index) as max FROM materials');
     const orderIdx = (maxOrder[0].max || 0) + 1;
+    const durationSec = mat.duration_seconds || (mat.duration_minutes * 60);
 
     const [result] = await db.query(
-      'INSERT INTO materials (title, description, content, thumbnail, cover_image, youtube_url, duration_minutes, order_index, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [`${mat.title} (Copy)`, mat.description, mat.content, mat.thumbnail, mat.cover_image, mat.youtube_url, mat.duration_minutes, orderIdx, 'draft']
+      'INSERT INTO materials (title, description, content, thumbnail, cover_image, youtube_url, duration_minutes, duration_seconds, order_index, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [`${mat.title} (Copy)`, mat.description, mat.content, mat.thumbnail, mat.cover_image, mat.youtube_url, mat.duration_minutes, durationSec, orderIdx, 'draft']
     );
 
     res.status(201).json({ success: true, message: 'Material duplicated', data: { id: result.insertId } });
@@ -782,12 +848,18 @@ progressRouter.post('/complete/:materialId', authMiddleware, async (req, res) =>
 
   try {
     await ensureUserProgress(req.user.id);
-    const [material] = await db.query('SELECT * FROM materials WHERE id = ? AND status = "publish"', [materialId]);
-    if (material.length === 0) return res.status(404).json({ success: false, message: 'Material not found' });
+    const [materialRows] = await db.query('SELECT * FROM materials WHERE id = ? AND status = "publish"', [materialId]);
+    if (materialRows.length === 0) return res.status(404).json({ success: false, message: 'Material not found' });
+    const currentMat = materialRows[0];
 
-    const minSeconds = material[0].duration_minutes * 60;
-    if (time_spent < minSeconds) {
-      return res.status(400).json({ success: false, message: `Minimum study time is ${material[0].duration_minutes} minutes` });
+    const minSeconds = currentMat.duration_seconds > 0
+      ? currentMat.duration_seconds
+      : (currentMat.duration_minutes * 60);
+
+    // Allow 1 second tolerance for network/interval timing difference
+    if (time_spent < minSeconds && (minSeconds - time_spent > 1)) {
+      const displayTime = minSeconds >= 60 ? `${Math.ceil(minSeconds / 60)} menit` : `${minSeconds} detik`;
+      return res.status(400).json({ success: false, message: `Waktu belajar minimum adalah ${displayTime}` });
     }
 
     const [prog] = await db.query(
@@ -797,25 +869,23 @@ progressRouter.post('/complete/:materialId', authMiddleware, async (req, res) =>
 
     if (prog.length === 0) return res.status(404).json({ success: false, message: 'Progress not found' });
     if (prog[0].status === 'locked') return res.status(403).json({ success: false, message: 'Material is still locked' });
-    if (prog[0].status === 'completed') return res.json({ success: true, message: 'Material already completed' });
 
     await db.query(
       'UPDATE user_progress SET status = "completed", end_time = NOW(), time_spent = ?, device = ?, browser = ?, ip_address = ? WHERE user_id = ? AND material_id = ?',
       [time_spent, device, browser, ip_address, req.user.id, materialId]
     );
 
-    const [nextMaterial] = await db.query(
-      'SELECT * FROM materials WHERE order_index > ? AND status = "publish" ORDER BY order_index ASC LIMIT 1',
-      [material[0].order_index]
-    );
+    // Auto-heal and unlock next material(s) for this user
+    await ensureUserProgress(req.user.id);
 
+    // Find next published material by deterministic sort order
+    const [published] = await db.query(
+      'SELECT id, title, order_index FROM materials WHERE status = "publish" ORDER BY order_index ASC, id ASC'
+    );
+    const currIdx = published.findIndex(m => m.id === Number(materialId));
     let nextUnlocked = null;
-    if (nextMaterial.length > 0) {
-      await db.query(
-        'INSERT INTO user_progress (user_id, material_id, status) VALUES (?, ?, "available") ON DUPLICATE KEY UPDATE status = CASE WHEN status = "locked" THEN "available" ELSE status END',
-        [req.user.id, nextMaterial[0].id]
-      );
-      nextUnlocked = { id: nextMaterial[0].id, title: nextMaterial[0].title };
+    if (currIdx >= 0 && currIdx + 1 < published.length) {
+      nextUnlocked = { id: published[currIdx + 1].id, title: published[currIdx + 1].title };
     }
 
     res.json({
@@ -845,12 +915,12 @@ progressRouter.get('/my', authMiddleware, async (req, res) => {
     `, [req.user.id]);
 
     const [progress] = await db.query(`
-      SELECT m.id, m.title, m.thumbnail, m.duration_minutes, m.order_index,
+      SELECT m.id, m.title, m.thumbnail, m.duration_minutes, m.duration_seconds, m.order_index,
              up.status, up.time_spent, up.start_time, up.end_time
       FROM materials m
       LEFT JOIN user_progress up ON up.material_id = m.id AND up.user_id = ?
       WHERE m.status = "publish"
-      ORDER BY m.order_index ASC
+      ORDER BY m.order_index ASC, m.id ASC
     `, [req.user.id]);
 
     const continueMaterial = progress.find(p => p.status === 'in_progress') ||
@@ -967,11 +1037,11 @@ usersRouter.get('/:id', authMiddleware, adminMiddleware, async (req, res) => {
     const user = users[0];
 
     const [progress] = await db.query(`
-      SELECT m.id, m.title, m.order_index, m.duration_minutes, up.status, up.time_spent, up.start_time, up.end_time
+      SELECT m.id, m.title, m.order_index, m.duration_minutes, m.duration_seconds, up.status, up.time_spent, up.start_time, up.end_time
       FROM materials m
       LEFT JOIN user_progress up ON up.material_id = m.id AND up.user_id = ?
       WHERE m.status = "publish"
-      ORDER BY m.order_index ASC
+      ORDER BY m.order_index ASC, m.id ASC
     `, [user.id]);
 
     user.progress = progress;
