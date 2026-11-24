@@ -221,3 +221,61 @@ export const settingsService = {
   },
 };
 
+// ===== POLLS =====
+export const pollService = {
+  getAll: async (params) => {
+    try {
+      const res = await api.get(API_ENDPOINTS.POLLS.LIST, { params });
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
+  getById: async (id) => {
+    try {
+      const res = await api.get(API_ENDPOINTS.POLLS.DETAIL(id));
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
+  create: async (data) => {
+    try {
+      const res = await api.post(API_ENDPOINTS.POLLS.CREATE, data);
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
+  update: async (id, data) => {
+    try {
+      const res = await api.put(API_ENDPOINTS.POLLS.UPDATE(id), data);
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
+  delete: async (id) => {
+    try {
+      const res = await api.delete(API_ENDPOINTS.POLLS.DELETE(id));
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
+  toggleStatus: async (id, data) => {
+    try {
+      const res = await api.put(API_ENDPOINTS.POLLS.TOGGLE_STATUS(id), data || {});
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
+  getVoters: async (id, params) => {
+    try {
+      const res = await api.get(API_ENDPOINTS.POLLS.VOTERS(id), { params });
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
+  getMemberActive: async () => {
+    try {
+      const res = await api.get(API_ENDPOINTS.POLLS.MEMBER_ACTIVE);
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
+  vote: async (id, optionId) => {
+    try {
+      const res = await api.post(API_ENDPOINTS.POLLS.VOTE(id), { option_id: optionId });
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
+};
+

@@ -1,29 +1,42 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, CheckCircle, Lock, PlayCircle, ArrowRight, Loader2, TrendingUp } from 'lucide-react';
-import { progressService } from '../../utils/request';
+import { BookOpen, CheckCircle, Lock, PlayCircle, ArrowRight, Loader2, TrendingUp, Vote } from 'lucide-react';
+import { progressService, pollService } from '../../utils/request';
 import { useAuth } from '../../contexts/AuthContext';
 import { getProgressPercent, formatDurationDisplay } from '../../utils/helpers';
+import PollCard from '../../components/member/PollCard';
 import toast from 'react-hot-toast';
 
 const MemberDashboard = () => {
   const { user } = useAuth();
   const [data, setData] = useState(null);
+  const [polls, setPolls] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchDashboardData = async () => {
+    try {
+      const [progressRes, pollsRes] = await Promise.all([
+        progressService.getMy(),
+        pollService.getMemberActive().catch(() => ({ data: [] })),
+      ]);
+      setData(progressRes.data);
+      setPolls(pollsRes.data || []);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchProgress = async () => {
-      try {
-        const res = await progressService.getMy();
-        setData(res.data);
-      } catch (err) {
-        toast.error(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProgress();
+    fetchDashboardData();
   }, []);
+
+  const handlePollVoted = () => {
+    pollService.getMemberActive().then((res) => {
+      setPolls(res.data || []);
+    });
+  };
 
   if (loading) {
     return (
@@ -97,6 +110,28 @@ const MemberDashboard = () => {
           {summary?.completed || 0} dari {summary?.total_materials || 0} materi telah diselesaikan
         </p>
       </div>
+
+      {/* Active Polling Section */}
+      {polls.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Vote size={20} className="text-indigo-600 dark:text-indigo-400" />
+              <h2 className="text-gray-900 dark:text-white font-bold text-lg">Polling & Suara Member</h2>
+            </div>
+            <Link
+              to="/member/polls"
+              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 text-sm font-medium transition-colors flex items-center gap-1"
+            >
+              Lihat Semua Polling <ArrowRight size={14} />
+            </Link>
+          </div>
+          {(() => {
+            const prioritizedPoll = polls.find((p) => !p.user_vote?.has_voted) || polls[0];
+            return <PollCard poll={prioritizedPoll} onVoted={handlePollVoted} />;
+          })()}
+        </div>
+      )}
 
       {/* Recent Progress */}
       {data?.progress?.length > 0 && (

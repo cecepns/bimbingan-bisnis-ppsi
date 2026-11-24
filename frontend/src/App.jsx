@@ -18,6 +18,7 @@ import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminMaterials from './pages/admin/AdminMaterials';
 import AdminMembers from './pages/admin/AdminMembers';
+import AdminPolls from './pages/admin/AdminPolls';
 import AdminSettings from './pages/admin/AdminSettings';
 
 // Member Pages
@@ -25,6 +26,7 @@ import MemberDashboard from './pages/member/MemberDashboard';
 import MemberMaterials from './pages/member/MemberMaterials';
 import MaterialDetailPage from './pages/member/MaterialDetailPage';
 import MemberProgress from './pages/member/MemberProgress';
+import MemberPolls from './pages/member/MemberPolls';
 import MemberProfile from './pages/member/MemberProfile';
 
 const App = () => {
@@ -54,6 +56,7 @@ const App = () => {
             <Route path="/admin" element={<ProtectedRoute requireRole="admin"><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/materials" element={<ProtectedRoute requireRole="admin"><AdminLayout><AdminMaterials /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/members" element={<ProtectedRoute requireRole="admin"><AdminLayout><AdminMembers /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/polls" element={<ProtectedRoute requireRole="admin"><AdminLayout><AdminPolls /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/stats" element={<ProtectedRoute requireRole="admin"><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requireRole="admin"><AdminLayout><AdminSettings /></AdminLayout></ProtectedRoute>} />
 
@@ -63,6 +66,7 @@ const App = () => {
             <Route path="/member/materials" element={<ProtectedRoute requireRole="member"><MemberLayout><MemberMaterials /></MemberLayout></ProtectedRoute>} />
             <Route path="/member/materials/:id" element={<ProtectedRoute requireRole="member"><MemberLayout><MaterialDetailPage /></MemberLayout></ProtectedRoute>} />
             <Route path="/member/progress" element={<ProtectedRoute requireRole="member"><MemberLayout><MemberProgress /></MemberLayout></ProtectedRoute>} />
+            <Route path="/member/polls" element={<ProtectedRoute requireRole="member"><MemberLayout><MemberPolls /></MemberLayout></ProtectedRoute>} />
             <Route path="/member/profile" element={<ProtectedRoute requireRole="member"><MemberLayout><MemberProfile /></MemberLayout></ProtectedRoute>} />
 
             {/* Default redirect */}

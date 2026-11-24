@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, Users, BarChart2,
-  Settings, LogOut, Menu, X, GraduationCap, ChevronRight, Sun, Moon
+  Settings, LogOut, Menu, X, GraduationCap, ChevronRight, Sun, Moon, Vote
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -12,6 +12,7 @@ const navItems = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { path: '/admin/materials', label: 'Materi', icon: BookOpen },
   { path: '/admin/members', label: 'Member', icon: Users },
+  { path: '/admin/polls', label: 'Polling', icon: Vote },
   { path: '/admin/stats', label: 'Statistik', icon: BarChart2 },
   { path: '/admin/settings', label: 'Pengaturan', icon: Settings },
 ];

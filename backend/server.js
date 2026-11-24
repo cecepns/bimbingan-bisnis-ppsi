@@ -94,6 +94,70 @@ const initDatabase = async () => {
     } catch (colErr) {
       console.warn('Materials duration_seconds migration notice:', colErr.message);
     }
+
+    // Ensure polls tables exist
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS polls (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) DEFAULT 'Polling',
+        question TEXT NOT NULL,
+        description TEXT DEFAULT NULL,
+        status ENUM('active', 'inactive') DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS poll_options (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        poll_id INT NOT NULL,
+        option_text VARCHAR(255) NOT NULL,
+        order_index INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (poll_id) REFERENCES polls(id) ON DELETE CASCADE
+      )
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS poll_votes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        poll_id INT NOT NULL,
+        option_id INT NOT NULL,
+        user_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_poll_user (poll_id, user_id),
+        FOREIGN KEY (poll_id) REFERENCES polls(id) ON DELETE CASCADE,
+        FOREIGN KEY (option_id) REFERENCES poll_options(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Seed default poll if none exists
+    const [existingPolls] = await db.query('SELECT id FROM polls LIMIT 1');
+    if (existingPolls.length === 0) {
+      const [pollResult] = await db.query(
+        "INSERT INTO polls (title, question, description, status) VALUES (?, ?, ?, 'active')",
+        [
+          'Peluang Bisnis P2C',
+          'Apakah Anda tertarik menjadikan aktivitas belanja sehari-hari sebagai peluang bisnis melalui konsep P2C?',
+          'Suara dan pendapat Anda sangat penting untuk pengembangan program ke depan.'
+        ]
+      );
+      const pollId = pollResult.insertId;
+      const initialOptions = [
+        'Ya, saya tertarik!',
+        'Ingin tahu lebih banyak.',
+        'Menarik, tetapi belum siap.',
+        'Belum tertarik.'
+      ];
+      for (let i = 0; i < initialOptions.length; i++) {
+        await db.query(
+          'INSERT INTO poll_options (poll_id, option_text, order_index) VALUES (?, ?, ?)',
+          [pollId, initialOptions[i], i + 1]
+        );
+      }
+    }
   } catch (err) {
     console.warn('Database auto-init notice:', err.message);
   }
@@ -1360,6 +1424,592 @@ settingsRouter.post('/email/test', authMiddleware, adminMiddleware, async (req, 
 });
 
 // ============================================
+// ROUTES: POLLING (/api/polls)
+// ============================================
+const pollsRouter = express.Router();
+
+// 1. GET /api/polls (Admin: List polls with pagination, search, status filter)
+pollsRouter.get('/', authMiddleware, adminMiddleware, async (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.max(1, parseInt(req.query.limit) || 10);
+  const offset = (page - 1) * limit;
+  const search = req.query.search ? req.query.search.trim() : '';
+  const status = req.query.status ? req.query.status.trim() : 'all';
+
+  try {
+    let whereClauses = [];
+    let queryParams = [];
+
+    if (search) {
+      whereClauses.push('(p.question LIKE ? OR p.title LIKE ? OR p.description LIKE ?)');
+      const searchParam = `%${search}%`;
+      queryParams.push(searchParam, searchParam, searchParam);
+    }
+
+    if (status && status !== 'all') {
+      whereClauses.push('p.status = ?');
+      queryParams.push(status);
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+    // Count total records
+    const [[{ total }]] = await db.query(
+      `SELECT COUNT(*) as total FROM polls p ${whereSql}`,
+      queryParams
+    );
+
+    // Fetch polls
+    const [polls] = await db.query(
+      `SELECT 
+        p.id, p.title, p.question, p.description, p.status, p.created_at, p.updated_at,
+        COUNT(DISTINCT pv.id) as total_votes,
+        COUNT(DISTINCT po.id) as total_options
+      FROM polls p
+      LEFT JOIN poll_options po ON po.poll_id = p.id
+      LEFT JOIN poll_votes pv ON pv.poll_id = p.id
+      ${whereSql}
+      GROUP BY p.id
+      ORDER BY p.id DESC
+      LIMIT ? OFFSET ?`,
+      [...queryParams, limit, offset]
+    );
+
+    // Fetch options for these polls if any
+    if (polls.length > 0) {
+      const pollIds = polls.map((p) => p.id);
+      const [options] = await db.query(
+        `SELECT 
+          po.id, po.poll_id, po.option_text, po.order_index,
+          COUNT(pv.id) as vote_count
+        FROM poll_options po
+        LEFT JOIN poll_votes pv ON pv.option_id = po.id
+        WHERE po.poll_id IN (?)
+        GROUP BY po.id
+        ORDER BY po.order_index ASC, po.id ASC`,
+        [pollIds]
+      );
+
+      const optionsByPoll = {};
+      options.forEach((opt) => {
+        if (!optionsByPoll[opt.poll_id]) optionsByPoll[opt.poll_id] = [];
+        optionsByPoll[opt.poll_id].push(opt);
+      });
+
+      polls.forEach((p) => {
+        const pollOpts = optionsByPoll[p.id] || [];
+        const totalVotes = Number(p.total_votes) || 0;
+        p.options = pollOpts.map((opt) => ({
+          id: opt.id,
+          option_text: opt.option_text,
+          order_index: opt.order_index,
+          vote_count: Number(opt.vote_count) || 0,
+          percentage: totalVotes > 0 ? Math.round(((Number(opt.vote_count) || 0) / totalVotes) * 100) : 0,
+        }));
+      });
+    }
+
+    res.json({
+      success: true,
+      data: polls,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    });
+  } catch (err) {
+    console.error('Get polls error:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
+
+// 2. GET /api/polls/member/active (Member: Active polls with vote status)
+pollsRouter.get('/member/active', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const [polls] = await db.query(
+      `SELECT 
+        p.id, p.title, p.question, p.description, p.status, p.created_at,
+        COUNT(DISTINCT pv.id) as total_votes
+      FROM polls p
+      LEFT JOIN poll_votes pv ON pv.poll_id = p.id
+      WHERE p.status = 'active'
+      GROUP BY p.id
+      ORDER BY p.id DESC`
+    );
+
+    if (polls.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const pollIds = polls.map((p) => p.id);
+
+    // Fetch options
+    const [options] = await db.query(
+      `SELECT 
+        po.id, po.poll_id, po.option_text, po.order_index,
+        COUNT(pv.id) as vote_count
+      FROM poll_options po
+      LEFT JOIN poll_votes pv ON pv.option_id = po.id
+      WHERE po.poll_id IN (?)
+      GROUP BY po.id
+      ORDER BY po.order_index ASC, po.id ASC`,
+      [pollIds]
+    );
+
+    // Fetch user votes for these polls
+    const [userVotes] = await db.query(
+      `SELECT poll_id, option_id, created_at as voted_at
+      FROM poll_votes
+      WHERE poll_id IN (?) AND user_id = ?`,
+      [pollIds, userId]
+    );
+
+    const userVoteMap = {};
+    userVotes.forEach((uv) => {
+      userVoteMap[uv.poll_id] = uv;
+    });
+
+    const optionsByPoll = {};
+    options.forEach((opt) => {
+      if (!optionsByPoll[opt.poll_id]) optionsByPoll[opt.poll_id] = [];
+      optionsByPoll[opt.poll_id].push(opt);
+    });
+
+    polls.forEach((p) => {
+      const pollOpts = optionsByPoll[p.id] || [];
+      const totalVotes = Number(p.total_votes) || 0;
+      const userVote = userVoteMap[p.id];
+
+      p.options = pollOpts.map((opt) => ({
+        id: opt.id,
+        option_text: opt.option_text,
+        order_index: opt.order_index,
+        vote_count: Number(opt.vote_count) || 0,
+        percentage: totalVotes > 0 ? Math.round(((Number(opt.vote_count) || 0) / totalVotes) * 100) : 0,
+      }));
+
+      p.user_vote = {
+        has_voted: Boolean(userVote),
+        option_id: userVote ? userVote.option_id : null,
+        voted_at: userVote ? userVote.voted_at : null,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: polls,
+    });
+  } catch (err) {
+    console.error('Get active polls for member error:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
+
+// 3. GET /api/polls/:id (Detail poll with options & vote statistics)
+pollsRouter.get('/:id', authMiddleware, async (req, res) => {
+  const pollId = req.params.id;
+  const userId = req.user.id;
+
+  try {
+    const [polls] = await db.query(
+      `SELECT 
+        p.id, p.title, p.question, p.description, p.status, p.created_at, p.updated_at,
+        COUNT(DISTINCT pv.id) as total_votes
+      FROM polls p
+      LEFT JOIN poll_votes pv ON pv.poll_id = p.id
+      WHERE p.id = ?
+      GROUP BY p.id`,
+      [pollId]
+    );
+
+    if (polls.length === 0) {
+      return res.status(404).json({ success: false, message: 'Polling tidak ditemukan' });
+    }
+
+    const poll = polls[0];
+    const totalVotes = Number(poll.total_votes) || 0;
+
+    // Fetch options
+    const [options] = await db.query(
+      `SELECT 
+        po.id, po.poll_id, po.option_text, po.order_index,
+        COUNT(pv.id) as vote_count
+      FROM poll_options po
+      LEFT JOIN poll_votes pv ON pv.option_id = po.id
+      WHERE po.poll_id = ?
+      GROUP BY po.id
+      ORDER BY po.order_index ASC, po.id ASC`,
+      [pollId]
+    );
+
+    poll.options = options.map((opt) => ({
+      id: opt.id,
+      option_text: opt.option_text,
+      order_index: opt.order_index,
+      vote_count: Number(opt.vote_count) || 0,
+      percentage: totalVotes > 0 ? Math.round(((Number(opt.vote_count) || 0) / totalVotes) * 100) : 0,
+    }));
+
+    // Current user's vote
+    const [userVotes] = await db.query(
+      'SELECT option_id, created_at as voted_at FROM poll_votes WHERE poll_id = ? AND user_id = ?',
+      [pollId, userId]
+    );
+
+    poll.user_vote = {
+      has_voted: userVotes.length > 0,
+      option_id: userVotes.length > 0 ? userVotes[0].option_id : null,
+      voted_at: userVotes.length > 0 ? userVotes[0].voted_at : null,
+    };
+
+    res.json({
+      success: true,
+      data: poll,
+    });
+  } catch (err) {
+    console.error('Get poll detail error:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
+
+// 4. POST /api/polls (Admin: Create poll with 2 up to 9 options)
+pollsRouter.post('/', authMiddleware, adminMiddleware, async (req, res) => {
+  const { title, question, description, status, options } = req.body;
+
+  if (!question || typeof question !== 'string' || !question.trim()) {
+    return res.status(400).json({ success: false, message: 'Pertanyaan polling wajib diisi' });
+  }
+
+  if (!Array.isArray(options) || options.length < 2) {
+    return res.status(400).json({ success: false, message: 'Minimal harus ada 2 pilihan jawaban' });
+  }
+
+  if (options.length > 9) {
+    return res.status(400).json({ success: false, message: 'Maksimal 9 pilihan jawaban' });
+  }
+
+  // Sanitize and validate options
+  const cleanOptions = options
+    .map((opt) => (typeof opt === 'string' ? opt.trim() : (opt?.option_text || '').trim()))
+    .filter((opt) => opt.length > 0);
+
+  if (cleanOptions.length < 2) {
+    return res.status(400).json({ success: false, message: 'Pilihan jawaban tidak boleh kosong (minimal 2)' });
+  }
+
+  if (cleanOptions.length > 9) {
+    return res.status(400).json({ success: false, message: 'Maksimal 9 pilihan jawaban yang valid' });
+  }
+
+  try {
+    const pollTitle = (title && title.trim()) || 'Polling Suara';
+    const pollStatus = status === 'inactive' ? 'inactive' : 'active';
+    const pollDesc = description ? description.trim() : null;
+
+    const [result] = await db.query(
+      'INSERT INTO polls (title, question, description, status) VALUES (?, ?, ?, ?)',
+      [pollTitle, question.trim(), pollDesc, pollStatus]
+    );
+
+    const pollId = result.insertId;
+
+    // Insert options
+    for (let i = 0; i < cleanOptions.length; i++) {
+      await db.query(
+        'INSERT INTO poll_options (poll_id, option_text, order_index) VALUES (?, ?, ?)',
+        [pollId, cleanOptions[i], i + 1]
+      );
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Polling berhasil dibuat',
+      data: { id: pollId },
+    });
+  } catch (err) {
+    console.error('Create poll error:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
+
+// 5. PUT /api/polls/:id (Admin: Update poll)
+pollsRouter.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  const pollId = req.params.id;
+  const { title, question, description, status, options } = req.body;
+
+  if (!question || typeof question !== 'string' || !question.trim()) {
+    return res.status(400).json({ success: false, message: 'Pertanyaan polling wajib diisi' });
+  }
+
+  try {
+    const [existing] = await db.query('SELECT * FROM polls WHERE id = ?', [pollId]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Polling tidak ditemukan' });
+    }
+
+    const pollTitle = (title && title.trim()) || existing[0].title;
+    const pollStatus = status ? (status === 'inactive' ? 'inactive' : 'active') : existing[0].status;
+    const pollDesc = description !== undefined ? (description ? description.trim() : null) : existing[0].description;
+
+    await db.query(
+      'UPDATE polls SET title = ?, question = ?, description = ?, status = ? WHERE id = ?',
+      [pollTitle, question.trim(), pollDesc, pollStatus, pollId]
+    );
+
+    // If options are provided, update options
+    if (Array.isArray(options) && options.length > 0) {
+      const cleanOptions = options
+        .map((opt) => {
+          if (typeof opt === 'string') return { text: opt.trim() };
+          return { id: opt.id || null, text: (opt.option_text || '').trim() };
+        })
+        .filter((opt) => opt.text.length > 0);
+
+      if (cleanOptions.length < 2) {
+        return res.status(400).json({ success: false, message: 'Minimal harus ada 2 pilihan jawaban' });
+      }
+      if (cleanOptions.length > 9) {
+        return res.status(400).json({ success: false, message: 'Maksimal 9 pilihan jawaban' });
+      }
+
+      // Check if any votes exist on this poll
+      const [[{ voteCount }]] = await db.query(
+        'SELECT COUNT(*) as voteCount FROM poll_votes WHERE poll_id = ?',
+        [pollId]
+      );
+
+      if (voteCount === 0) {
+        // No votes yet, safe to replace options completely
+        await db.query('DELETE FROM poll_options WHERE poll_id = ?', [pollId]);
+        for (let i = 0; i < cleanOptions.length; i++) {
+          await db.query(
+            'INSERT INTO poll_options (poll_id, option_text, order_index) VALUES (?, ?, ?)',
+            [pollId, cleanOptions[i].text, i + 1]
+          );
+        }
+      } else {
+        // Has votes: update existing options or insert new ones to preserve vote history
+        const [existingOptions] = await db.query(
+          'SELECT id, option_text, order_index FROM poll_options WHERE poll_id = ? ORDER BY order_index ASC',
+          [pollId]
+        );
+
+        for (let i = 0; i < cleanOptions.length; i++) {
+          if (i < existingOptions.length) {
+            // Update existing option
+            await db.query(
+              'UPDATE poll_options SET option_text = ?, order_index = ? WHERE id = ?',
+              [cleanOptions[i].text, i + 1, existingOptions[i].id]
+            );
+          } else {
+            // Insert new option
+            await db.query(
+              'INSERT INTO poll_options (poll_id, option_text, order_index) VALUES (?, ?, ?)',
+              [pollId, cleanOptions[i].text, i + 1]
+            );
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Polling berhasil diperbarui',
+    });
+  } catch (err) {
+    console.error('Update poll error:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
+
+// 6. PUT /api/polls/:id/toggle-status (Admin: Toggle or set status)
+pollsRouter.put('/:id/toggle-status', authMiddleware, adminMiddleware, async (req, res) => {
+  const pollId = req.params.id;
+  const explicitStatus = req.body.status;
+
+  try {
+    const [existing] = await db.query('SELECT status FROM polls WHERE id = ?', [pollId]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Polling tidak ditemukan' });
+    }
+
+    let newStatus;
+    if (explicitStatus && (explicitStatus === 'active' || explicitStatus === 'inactive')) {
+      newStatus = explicitStatus;
+    } else {
+      newStatus = existing[0].status === 'active' ? 'inactive' : 'active';
+    }
+
+    await db.query('UPDATE polls SET status = ? WHERE id = ?', [newStatus, pollId]);
+
+    res.json({
+      success: true,
+      message: `Status polling diubah menjadi ${newStatus === 'active' ? 'Aktif' : 'Nonaktif'}`,
+      data: { status: newStatus },
+    });
+  } catch (err) {
+    console.error('Toggle poll status error:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
+
+// 7. DELETE /api/polls/:id (Admin: Delete poll)
+pollsRouter.delete('/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  const pollId = req.params.id;
+
+  try {
+    const [existing] = await db.query('SELECT id FROM polls WHERE id = ?', [pollId]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Polling tidak ditemukan' });
+    }
+
+    await db.query('DELETE FROM polls WHERE id = ?', [pollId]);
+
+    res.json({
+      success: true,
+      message: 'Polling berhasil dihapus',
+    });
+  } catch (err) {
+    console.error('Delete poll error:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
+
+// 8. GET /api/polls/:id/voters (Admin: List respondents with pagination & search)
+pollsRouter.get('/:id/voters', authMiddleware, adminMiddleware, async (req, res) => {
+  const pollId = req.params.id;
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.max(1, parseInt(req.query.limit) || 10);
+  const offset = (page - 1) * limit;
+  const search = req.query.search ? req.query.search.trim() : '';
+  const optionId = req.query.option_id ? parseInt(req.query.option_id) : null;
+
+  try {
+    let whereClauses = ['pv.poll_id = ?'];
+    let queryParams = [pollId];
+
+    if (optionId) {
+      whereClauses.push('pv.option_id = ?');
+      queryParams.push(optionId);
+    }
+
+    if (search) {
+      whereClauses.push('(u.name LIKE ? OR u.email LIKE ? OR u.whatsapp LIKE ?)');
+      const s = `%${search}%`;
+      queryParams.push(s, s, s);
+    }
+
+    const whereSql = `WHERE ${whereClauses.join(' AND ')}`;
+
+    // Count
+    const [[{ total }]] = await db.query(
+      `SELECT COUNT(*) as total
+      FROM poll_votes pv
+      JOIN users u ON u.id = pv.user_id
+      ${whereSql}`,
+      queryParams
+    );
+
+    // Voters
+    const [voters] = await db.query(
+      `SELECT 
+        pv.id as vote_id,
+        pv.created_at as voted_at,
+        u.id as user_id,
+        u.name as user_name,
+        u.email as user_email,
+        u.whatsapp as user_whatsapp,
+        u.avatar as user_avatar,
+        po.id as option_id,
+        po.option_text
+      FROM poll_votes pv
+      JOIN users u ON u.id = pv.user_id
+      JOIN poll_options po ON po.id = pv.option_id
+      ${whereSql}
+      ORDER BY pv.id DESC
+      LIMIT ? OFFSET ?`,
+      [...queryParams, limit, offset]
+    );
+
+    res.json({
+      success: true,
+      data: voters,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    });
+  } catch (err) {
+    console.error('Get poll voters error:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
+
+// 9. POST /api/polls/:id/vote (Member: Cast a vote)
+pollsRouter.post('/:id/vote', authMiddleware, async (req, res) => {
+  const pollId = req.params.id;
+  const userId = req.user.id;
+  const { option_id } = req.body;
+
+  if (!option_id) {
+    return res.status(400).json({ success: false, message: 'Pilihan jawaban wajib dipilih' });
+  }
+
+  try {
+    // 1. Check poll is active
+    const [polls] = await db.query('SELECT id, status FROM polls WHERE id = ?', [pollId]);
+    if (polls.length === 0) {
+      return res.status(404).json({ success: false, message: 'Polling tidak ditemukan' });
+    }
+
+    if (polls[0].status !== 'active') {
+      return res.status(400).json({ success: false, message: 'Maaf, polling ini sudah ditutup atau tidak aktif' });
+    }
+
+    // 2. Check option exists and belongs to this poll
+    const [options] = await db.query(
+      'SELECT id FROM poll_options WHERE id = ? AND poll_id = ?',
+      [option_id, pollId]
+    );
+    if (options.length === 0) {
+      return res.status(400).json({ success: false, message: 'Pilihan tidak valid untuk polling ini' });
+    }
+
+    // 3. Check if user already voted
+    const [existingVotes] = await db.query(
+      'SELECT id FROM poll_votes WHERE poll_id = ? AND user_id = ?',
+      [pollId, userId]
+    );
+    if (existingVotes.length > 0) {
+      return res.status(400).json({ success: false, message: 'Anda sudah pernah memberikan suara pada polling ini' });
+    }
+
+    // 4. Insert vote
+    await db.query(
+      'INSERT INTO poll_votes (poll_id, option_id, user_id) VALUES (?, ?, ?)',
+      [pollId, option_id, userId]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Terima kasih, suara Anda berhasil dikirim!',
+    });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ success: false, message: 'Anda sudah pernah memberikan suara pada polling ini' });
+    }
+    console.error('Vote error:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
+
+// ============================================
 // ROUTE MOUNTING & ERROR HANDLERS
 // ============================================
 app.use('/api/auth', authRouter);
@@ -1368,6 +2018,7 @@ app.use('/api/progress', progressRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/polls', pollsRouter);
 
 // Health check
 app.get('/', (req, res) => {

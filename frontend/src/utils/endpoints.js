@@ -46,5 +46,17 @@ export const API_ENDPOINTS = {
     UPDATE_EMAIL: '/settings/email',
     TEST_EMAIL: '/settings/email/test',
   },
+
+  POLLS: {
+    LIST: '/polls',
+    DETAIL: (id) => `/polls/${id}`,
+    CREATE: '/polls',
+    UPDATE: (id) => `/polls/${id}`,
+    DELETE: (id) => `/polls/${id}`,
+    TOGGLE_STATUS: (id) => `/polls/${id}/toggle-status`,
+    VOTERS: (id) => `/polls/${id}/voters`,
+    MEMBER_ACTIVE: '/polls/member/active',
+    VOTE: (id) => `/polls/${id}/vote`,
+  },
 };
 

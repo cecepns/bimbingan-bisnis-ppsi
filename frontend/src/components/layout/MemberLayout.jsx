@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, TrendingUp, UserCircle,
-  LogOut, GraduationCap, Menu, Sun, Moon
+  LogOut, GraduationCap, Menu, Sun, Moon, Vote
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -12,6 +12,7 @@ const navItems = [
   { path: '/member', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { path: '/member/materials', label: 'Semua Materi', icon: BookOpen },
   { path: '/member/progress', label: 'Progress Belajar', icon: TrendingUp },
+  { path: '/member/polls', label: 'Polling', icon: Vote },
   { path: '/member/profile', label: 'Profil', icon: UserCircle },
 ];
 
