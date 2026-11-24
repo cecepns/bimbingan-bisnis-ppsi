@@ -18,16 +18,16 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 !mt-0">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative w-full ${sizes[size]} bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl z-10 max-h-[90vh] flex flex-col`}>
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-white/10">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">{title}</h2>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all">
-            <X size={20} />
+      <div className={`relative w-full ${sizes[size]} bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl z-10 max-h-[92vh] sm:max-h-[90vh] flex flex-col`}>
+        <div className="flex items-center justify-between px-4 py-3.5 sm:p-6 border-b border-gray-200 dark:border-white/10">
+          <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white truncate pr-2">{title}</h2>
+          <button onClick={onClose} className="p-1.5 sm:p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all flex-shrink-0">
+            <X size={18} className="sm:w-5 sm:h-5" />
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 p-6">
+        <div className="overflow-y-auto flex-1 p-3.5 sm:p-6">
           {children}
         </div>
       </div>

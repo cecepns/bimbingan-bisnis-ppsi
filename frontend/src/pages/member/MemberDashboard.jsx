@@ -114,14 +114,14 @@ const MemberDashboard = () => {
       {/* Active Polling Section */}
       {polls.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
             <div className="flex items-center gap-2">
               <Vote size={20} className="text-indigo-600 dark:text-indigo-400" />
-              <h2 className="text-gray-900 dark:text-white font-bold text-lg">Polling & Suara Member</h2>
+              <h2 className="text-gray-900 dark:text-white font-bold text-base sm:text-lg">Polling & Suara Member</h2>
             </div>
             <Link
               to="/member/polls"
-              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 text-sm font-medium transition-colors flex items-center gap-1"
+              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 text-xs sm:text-sm font-medium transition-colors flex items-center gap-1 self-start sm:self-auto"
             >
               Lihat Semua Polling <ArrowRight size={14} />
             </Link>

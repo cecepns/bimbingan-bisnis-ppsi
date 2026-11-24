@@ -185,13 +185,17 @@ const PollFormModal = ({ isOpen, onClose, onSuccess, initialData = null }) => {
       },
       fontSize: '0.875rem',
     }),
+    menuPortal: (base) => ({
+      ...base,
+      zIndex: 9999,
+    }),
     menu: (base) => ({
       ...base,
       backgroundColor: isDark ? '#1f2937' : '#ffffff',
       border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e5e7eb',
       borderRadius: '0.75rem',
       boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
-      zIndex: 50,
+      zIndex: 9999,
       overflow: 'hidden',
     }),
     option: (base, state) => ({
@@ -252,40 +256,41 @@ const PollFormModal = ({ isOpen, onClose, onSuccess, initialData = null }) => {
       title={initialData ? 'Edit Polling' : 'Buat Polling Baru'}
       size="lg"
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
         {/* Dimunculkan di Materi Mana Saja (React Select Multi-select & Searchable) */}
-        <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-500/20">
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
-              <BookOpen size={16} className="text-indigo-600 dark:text-indigo-400" />
-              Dimunculkan Di Materi Mana Saja? <span className="text-red-500">*</span>
+        <div className="p-3 sm:p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-500/20 space-y-2">
+          {/* Header Title & Quick Action Buttons */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2">
+            <label className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+              <BookOpen size={16} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+              <span>Dimunculkan Di Materi Mana Saja?</span>
+              <span className="text-red-500 font-bold">*</span>
             </label>
-            <div className="flex items-center gap-2">
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
               <button
                 type="button"
                 onClick={handleSelectAllMaterials}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 bg-white dark:bg-gray-800 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-white/10 shadow-xs transition active:scale-95"
               >
-                <CheckSquare size={12} />
+                <CheckSquare size={13} />
                 Pilih Semua ({materialOptions.length})
               </button>
               {selectedMaterials.length > 0 && (
-                <>
-                  <span className="text-gray-300 dark:text-gray-600">|</span>
-                  <button
-                    type="button"
-                    onClick={handleClearAllMaterials}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-red-500 hover:underline"
-                  >
-                    <XSquare size={12} />
-                    Hapus Semua
-                  </button>
-                </>
+                <button
+                  type="button"
+                  onClick={handleClearAllMaterials}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-red-500 hover:text-red-600 bg-white dark:bg-gray-800 px-2 py-1 rounded-lg border border-red-200 dark:border-white/10 transition active:scale-95"
+                >
+                  <XSquare size={13} />
+                  Reset
+                </button>
               )}
             </div>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2.5">
-            Ketik untuk mencari materi. Anda dapat memilih lebih dari satu materi (Multi-select). Polling ini akan otomatis tampil di bawah isi materi yang dipilih.
+
+          <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+            Ketik untuk mencari materi. Anda dapat memilih lebih dari satu materi (Multi-select). Polling akan otomatis muncul di bawah materi yang dipilih.
           </p>
 
           <Select
@@ -297,12 +302,14 @@ const PollFormModal = ({ isOpen, onClose, onSuccess, initialData = null }) => {
             placeholder="Ketik untuk mencari materi..."
             noOptionsMessage={() => 'Materi tidak ditemukan'}
             styles={selectStyles}
-            className="react-select-container"
+            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+            menuPosition="fixed"
+            className="react-select-container text-sm"
             classNamePrefix="react-select"
             closeMenuOnSelect={false}
           />
           {selectedMaterials.length > 0 && (
-            <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-2">
+            <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">
               ✓ Polling akan aktif pada {selectedMaterials.length} materi yang dipilih.
             </p>
           )}
@@ -310,7 +317,7 @@ const PollFormModal = ({ isOpen, onClose, onSuccess, initialData = null }) => {
 
         {/* Judul / Topik */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Judul / Topik Singkat <span className="text-gray-400 font-normal">(Opsional)</span>
           </label>
           <input
@@ -318,15 +325,16 @@ const PollFormModal = ({ isOpen, onClose, onSuccess, initialData = null }) => {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Contoh: Peluang Bisnis P2C"
-            className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-sm"
+            className="w-full px-3.5 py-2 sm:py-2.5 rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-sm"
           />
         </div>
 
         {/* Pertanyaan */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
-            <HelpCircle size={15} className="text-indigo-500" />
-            Pertanyaan Polling <span className="text-red-500">*</span>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1.5">
+            <HelpCircle size={15} className="text-indigo-500 flex-shrink-0" />
+            <span>Pertanyaan Polling</span>
+            <span className="text-red-500">*</span>
           </label>
           <textarea
             rows={3}
@@ -334,13 +342,13 @@ const PollFormModal = ({ isOpen, onClose, onSuccess, initialData = null }) => {
             onChange={(e) => setQuestion(e.target.value)}
             placeholder="Contoh: Apakah Anda tertarik menjadikan aktivitas belanja sehari-hari sebagai peluang bisnis melalui konsep P2C?"
             required
-            className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-sm"
+            className="w-full px-3.5 py-2 sm:py-2.5 rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-sm leading-relaxed"
           />
         </div>
 
         {/* Deskripsi */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Keterangan / Deskripsi Tambahan <span className="text-gray-400 font-normal">(Opsional)</span>
           </label>
           <input
@@ -348,7 +356,7 @@ const PollFormModal = ({ isOpen, onClose, onSuccess, initialData = null }) => {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Contoh: Pendapat Anda sangat penting bagi pengembangan ekosistem kami."
-            className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-sm"
+            className="w-full px-3.5 py-2 sm:py-2.5 rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-sm"
           />
         </div>
 
@@ -357,7 +365,7 @@ const PollFormModal = ({ isOpen, onClose, onSuccess, initialData = null }) => {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
             Status Polling
           </label>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-5">
             <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
               <input
                 type="radio"
@@ -385,21 +393,22 @@ const PollFormModal = ({ isOpen, onClose, onSuccess, initialData = null }) => {
 
         {/* Pilihan Jawaban (Options) */}
         <div className="pt-2 border-t border-gray-200 dark:border-white/10">
-          <div className="flex items-center justify-between mb-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 mb-2.5">
             <div>
-              <label className="block text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
-                <Layers size={16} className="text-indigo-500" />
-                Pilihan Jawaban (Opsi) <span className="text-red-500">*</span>
+              <label className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+                <Layers size={16} className="text-indigo-500 flex-shrink-0" />
+                <span>Pilihan Jawaban (Opsi)</span>
+                <span className="text-red-500">*</span>
               </label>
               <p className="text-xs text-gray-500 mt-0.5">
-                Minimal 2 pilihan, maksimal hingga 9 pilihan ({options.length}/9 terisi). Member hanya bisa memilih salah satu jawaban.
+                Minimal 2, maksimal hingga 9 pilihan ({options.length}/9 terisi). Member hanya bisa memilih salah satu jawaban.
               </p>
             </div>
             {options.length < 9 && (
               <button
                 type="button"
                 onClick={handleAddOption}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition"
+                className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition active:scale-95"
               >
                 <Plus size={14} />
                 Tambah Pilihan
@@ -407,34 +416,26 @@ const PollFormModal = ({ isOpen, onClose, onSuccess, initialData = null }) => {
             )}
           </div>
 
-          <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-56 overflow-y-auto pr-0.5 sm:pr-1">
             {options.map((option, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-400 flex-shrink-0">
+                <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-400 flex-shrink-0">
                   {idx + 1}
                 </span>
                 <input
                   type="text"
                   value={option}
                   onChange={(e) => handleOptionChange(idx, e.target.value)}
-                  placeholder={`Pilihan ${idx + 1} (contoh: ${
-                    idx === 0
-                      ? 'Ya, saya tertarik!'
-                      : idx === 1
-                      ? 'Ingin tahu lebih banyak.'
-                      : idx === 2
-                      ? 'Menarik, tetapi belum siap.'
-                      : 'Belum tertarik.'
-                  })`}
+                  placeholder={`Pilihan ${idx + 1}`}
                   required
-                  className="flex-1 px-3.5 py-2 rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-sm"
+                  className="flex-1 px-3 py-2 rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-sm"
                 />
                 {options.length > 2 && (
                   <button
                     type="button"
                     onClick={() => handleRemoveOption(idx)}
                     title="Hapus Pilihan"
-                    className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition flex-shrink-0"
+                    className="p-1.5 sm:p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition flex-shrink-0"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -445,19 +446,19 @@ const PollFormModal = ({ isOpen, onClose, onSuccess, initialData = null }) => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-white/10">
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200 dark:border-white/10">
           <button
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition"
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition text-center"
           >
             Batal
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition active:scale-95"
           >
             {submitting && <Loader2 size={16} className="animate-spin" />}
             {initialData ? 'Simpan Perubahan' : 'Buat Polling'}

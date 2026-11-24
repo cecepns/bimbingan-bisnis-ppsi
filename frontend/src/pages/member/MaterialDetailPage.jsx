@@ -223,14 +223,21 @@ const MaterialDetailPage = () => {
 
       {/* Polling di Bawah Materi */}
       {polls && polls.length > 0 && (
-        <div className="space-y-4 pt-2">
-          <div className="flex items-center gap-2">
-            <Vote size={22} className="text-indigo-600 dark:text-indigo-400" />
-            <h3 className="text-gray-900 dark:text-white font-bold text-lg sm:text-xl">
-              Polling Terkait Materi Ini
-            </h3>
+        <div className="space-y-3.5 pt-3 border-t border-gray-200 dark:border-white/10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">
+              <Vote size={18} />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white leading-tight">
+                Polling Materi Ini
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Yuk berikan pendapat atau jawaban Anda mengenai materi ini
+              </p>
+            </div>
           </div>
-          <div className="space-y-5">
+          <div className="space-y-4">
             {polls.map((poll) => (
               <PollCard
                 key={poll.id}
