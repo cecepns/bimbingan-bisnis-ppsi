@@ -120,6 +120,17 @@ CREATE TABLE IF NOT EXISTS poll_votes (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Poll Materials table (link polls to specific materials)
+CREATE TABLE IF NOT EXISTS poll_materials (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    poll_id INT NOT NULL,
+    material_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_poll_material (poll_id, material_id),
+    FOREIGN KEY (poll_id) REFERENCES polls(id) ON DELETE CASCADE,
+    FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE
+);
+
 
 -- ============================================
 
@@ -153,4 +164,11 @@ INSERT INTO poll_options (id, poll_id, option_text, order_index) VALUES
 (2, 1, 'Ingin tahu lebih banyak.', 2),
 (3, 1, 'Menarik, tetapi belum siap.', 3),
 (4, 1, 'Belum tertarik.', 4)
+ON DUPLICATE KEY UPDATE id = id;
+
+-- Assign sample poll to all initial materials (id 1, 2, 3)
+INSERT INTO poll_materials (poll_id, material_id) VALUES
+(1, 1),
+(1, 2),
+(1, 3)
 ON DUPLICATE KEY UPDATE id = id;

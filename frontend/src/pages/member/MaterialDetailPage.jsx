@@ -1,9 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, CheckCircle, Lock, Download, Timer, Loader2, Eye } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle, Lock, Download, Timer, Loader2, Eye, Vote } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { materialsService, progressService } from '../../utils/request';
+import { materialsService, progressService, pollService } from '../../utils/request';
 import { getImageUrl, getYoutubeEmbedUrl, formatDurationDisplay } from '../../utils/helpers';
+import PollCard from '../../components/member/PollCard';
 
 const formatTime = (seconds) => {
   const m = Math.floor(seconds / 60);
@@ -15,6 +16,7 @@ const MaterialDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [material, setMaterial] = useState(null);
+  const [polls, setPolls] = useState([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
 
@@ -29,6 +31,15 @@ const MaterialDetailPage = () => {
     : 0;
   const timerComplete = timeSpent >= minSeconds;
   const progress = Math.min(100, (timeSpent / (minSeconds || 1)) * 100);
+
+  const fetchPolls = useCallback(async () => {
+    try {
+      const res = await pollService.getByMaterial(id);
+      setPolls(res.data || []);
+    } catch (err) {
+      console.error('Failed to load polls for material:', err);
+    }
+  }, [id]);
 
   useEffect(() => {
     const fetchMaterial = async () => {
@@ -50,9 +61,10 @@ const MaterialDetailPage = () => {
       }
     };
     fetchMaterial();
+    fetchPolls();
 
     return () => clearInterval(intervalRef.current);
-  }, [id]);
+  }, [id, fetchPolls]);
 
   // Timer tick
   useEffect(() => {
@@ -205,6 +217,27 @@ const MaterialDetailPage = () => {
                 <span>Preview PDF</span>
               </a>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Polling di Bawah Materi */}
+      {polls && polls.length > 0 && (
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center gap-2">
+            <Vote size={22} className="text-indigo-600 dark:text-indigo-400" />
+            <h3 className="text-gray-900 dark:text-white font-bold text-lg sm:text-xl">
+              Polling Terkait Materi Ini
+            </h3>
+          </div>
+          <div className="space-y-5">
+            {polls.map((poll) => (
+              <PollCard
+                key={poll.id}
+                poll={poll}
+                onVoted={fetchPolls}
+              />
+            ))}
           </div>
         </div>
       )}

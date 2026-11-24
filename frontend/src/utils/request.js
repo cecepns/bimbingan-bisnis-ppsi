@@ -271,6 +271,12 @@ export const pollService = {
       return res.data;
     } catch (err) { handleError(err); }
   },
+  getByMaterial: async (materialId) => {
+    try {
+      const res = await api.get(API_ENDPOINTS.POLLS.BY_MATERIAL(materialId));
+      return res.data;
+    } catch (err) { handleError(err); }
+  },
   vote: async (id, optionId) => {
     try {
       const res = await api.post(API_ENDPOINTS.POLLS.VOTE(id), { option_id: optionId });

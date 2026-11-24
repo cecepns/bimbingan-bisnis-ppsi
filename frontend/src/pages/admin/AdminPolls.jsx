@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   Vote, Plus, Search, Eye, Edit2, Trash2, CheckCircle2,
-  XCircle, Users, BarChart3, Loader2, HelpCircle
+  XCircle, Users, BarChart3, Loader2, HelpCircle, BookOpen
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { pollService } from '../../utils/request';
@@ -200,6 +200,7 @@ const AdminPolls = () => {
                 <thead className="bg-gray-50 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400 uppercase text-[11px] font-semibold border-b border-gray-200 dark:border-white/10">
                   <tr>
                     <th className="py-3.5 px-4">Pertanyaan & Topik</th>
+                    <th className="py-3.5 px-4 text-center">Materi Terkait</th>
                     <th className="py-3.5 px-4 text-center">Pilihan</th>
                     <th className="py-3.5 px-4 text-center">Responden</th>
                     <th className="py-3.5 px-4 text-center">Status</th>
@@ -229,6 +230,26 @@ const AdminPolls = () => {
                               </p>
                             )}
                           </div>
+                        </td>
+
+                        {/* Materi Terkait */}
+                        <td className="py-4 px-4 text-center">
+                          {p.materials && p.materials.length > 0 ? (
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
+                                <BookOpen size={11} />
+                                {p.materials.length} Materi
+                              </span>
+                              <span
+                                className="text-[11px] text-gray-500 dark:text-gray-400 max-w-[130px] truncate"
+                                title={p.materials.map((m) => `${m.order_index}. ${m.title}`).join(', ')}
+                              >
+                                {p.materials.map((m) => `Materi ${m.order_index}`).join(', ')}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
                         </td>
 
                         {/* Pilihan (Badge) */}

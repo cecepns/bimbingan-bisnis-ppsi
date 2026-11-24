@@ -133,6 +133,19 @@ const initDatabase = async () => {
       )
     `);
 
+    // Ensure poll_materials table exists
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS poll_materials (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        poll_id INT NOT NULL,
+        material_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_poll_material (poll_id, material_id),
+        FOREIGN KEY (poll_id) REFERENCES polls(id) ON DELETE CASCADE,
+        FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE
+      )
+    `);
+
     // Seed default poll if none exists
     const [existingPolls] = await db.query('SELECT id FROM polls LIMIT 1');
     if (existingPolls.length === 0) {
@@ -155,6 +168,15 @@ const initDatabase = async () => {
         await db.query(
           'INSERT INTO poll_options (poll_id, option_text, order_index) VALUES (?, ?, ?)',
           [pollId, initialOptions[i], i + 1]
+        );
+      }
+
+      // Link to all existing materials
+      const [allMats] = await db.query('SELECT id FROM materials LIMIT 5');
+      for (const m of allMats) {
+        await db.query(
+          'INSERT IGNORE INTO poll_materials (poll_id, material_id) VALUES (?, ?)',
+          [pollId, m.id]
         );
       }
     }
@@ -1496,6 +1518,26 @@ pollsRouter.get('/', authMiddleware, adminMiddleware, async (req, res) => {
         optionsByPoll[opt.poll_id].push(opt);
       });
 
+      // Fetch materials associated with these polls
+      const [pollMats] = await db.query(
+        `SELECT pm.poll_id, m.id as material_id, m.title as material_title, m.order_index
+        FROM poll_materials pm
+        JOIN materials m ON m.id = pm.material_id
+        WHERE pm.poll_id IN (?)
+        ORDER BY m.order_index ASC`,
+        [pollIds]
+      );
+
+      const materialsByPoll = {};
+      pollMats.forEach((pm) => {
+        if (!materialsByPoll[pm.poll_id]) materialsByPoll[pm.poll_id] = [];
+        materialsByPoll[pm.poll_id].push({
+          id: pm.material_id,
+          title: pm.material_title,
+          order_index: pm.order_index,
+        });
+      });
+
       polls.forEach((p) => {
         const pollOpts = optionsByPoll[p.id] || [];
         const totalVotes = Number(p.total_votes) || 0;
@@ -1506,6 +1548,8 @@ pollsRouter.get('/', authMiddleware, adminMiddleware, async (req, res) => {
           vote_count: Number(opt.vote_count) || 0,
           percentage: totalVotes > 0 ? Math.round(((Number(opt.vote_count) || 0) / totalVotes) * 100) : 0,
         }));
+        p.materials = materialsByPoll[p.id] || [];
+        p.material_ids = (materialsByPoll[p.id] || []).map((m) => m.id);
       });
     }
 
@@ -1666,6 +1710,19 @@ pollsRouter.get('/:id', authMiddleware, async (req, res) => {
       voted_at: userVotes.length > 0 ? userVotes[0].voted_at : null,
     };
 
+    // Fetch materials assigned to this poll
+    const [pollMats] = await db.query(
+      `SELECT m.id, m.title, m.order_index
+      FROM poll_materials pm
+      JOIN materials m ON m.id = pm.material_id
+      WHERE pm.poll_id = ?
+      ORDER BY m.order_index ASC`,
+      [pollId]
+    );
+
+    poll.materials = pollMats;
+    poll.material_ids = pollMats.map((m) => m.id);
+
     res.json({
       success: true,
       data: poll,
@@ -1676,9 +1733,9 @@ pollsRouter.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// 4. POST /api/polls (Admin: Create poll with 2 up to 9 options)
+// 4. POST /api/polls (Admin: Create poll with 2 up to 9 options & material associations)
 pollsRouter.post('/', authMiddleware, adminMiddleware, async (req, res) => {
-  const { title, question, description, status, options } = req.body;
+  const { title, question, description, status, options, material_ids } = req.body;
 
   if (!question || typeof question !== 'string' || !question.trim()) {
     return res.status(400).json({ success: false, message: 'Pertanyaan polling wajib diisi' });
@@ -1725,6 +1782,18 @@ pollsRouter.post('/', authMiddleware, adminMiddleware, async (req, res) => {
       );
     }
 
+    // Insert material associations
+    if (Array.isArray(material_ids) && material_ids.length > 0) {
+      for (const matId of material_ids) {
+        if (matId) {
+          await db.query(
+            'INSERT IGNORE INTO poll_materials (poll_id, material_id) VALUES (?, ?)',
+            [pollId, matId]
+          );
+        }
+      }
+    }
+
     res.status(201).json({
       success: true,
       message: 'Polling berhasil dibuat',
@@ -1739,7 +1808,7 @@ pollsRouter.post('/', authMiddleware, adminMiddleware, async (req, res) => {
 // 5. PUT /api/polls/:id (Admin: Update poll)
 pollsRouter.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
   const pollId = req.params.id;
-  const { title, question, description, status, options } = req.body;
+  const { title, question, description, status, options, material_ids } = req.body;
 
   if (!question || typeof question !== 'string' || !question.trim()) {
     return res.status(400).json({ success: false, message: 'Pertanyaan polling wajib diisi' });
@@ -1812,6 +1881,19 @@ pollsRouter.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
               [pollId, cleanOptions[i].text, i + 1]
             );
           }
+        }
+      }
+    }
+
+    // Update material associations if provided
+    if (Array.isArray(material_ids)) {
+      await db.query('DELETE FROM poll_materials WHERE poll_id = ?', [pollId]);
+      for (const matId of material_ids) {
+        if (matId) {
+          await db.query(
+            'INSERT IGNORE INTO poll_materials (poll_id, material_id) VALUES (?, ?)',
+            [pollId, matId]
+          );
         }
       }
     }
@@ -1951,7 +2033,94 @@ pollsRouter.get('/:id/voters', authMiddleware, adminMiddleware, async (req, res)
   }
 });
 
-// 9. POST /api/polls/:id/vote (Member: Cast a vote)
+// 9. GET /api/polls/material/:materialId (Member: Polls assigned to specific material)
+pollsRouter.get('/material/:materialId', authMiddleware, async (req, res) => {
+  const materialId = req.params.materialId;
+  const userId = req.user.id;
+
+  try {
+    const [polls] = await db.query(
+      `SELECT 
+        p.id, p.title, p.question, p.description, p.status, p.created_at,
+        COUNT(DISTINCT pv.id) as total_votes
+      FROM polls p
+      JOIN poll_materials pm ON pm.poll_id = p.id
+      LEFT JOIN poll_votes pv ON pv.poll_id = p.id
+      WHERE pm.material_id = ? AND p.status = 'active'
+      GROUP BY p.id
+      ORDER BY p.id DESC`,
+      [materialId]
+    );
+
+    if (polls.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const pollIds = polls.map((p) => p.id);
+
+    // Fetch options
+    const [options] = await db.query(
+      `SELECT 
+        po.id, po.poll_id, po.option_text, po.order_index,
+        COUNT(pv.id) as vote_count
+      FROM poll_options po
+      LEFT JOIN poll_votes pv ON pv.option_id = po.id
+      WHERE po.poll_id IN (?)
+      GROUP BY po.id
+      ORDER BY po.order_index ASC, po.id ASC`,
+      [pollIds]
+    );
+
+    // Fetch user votes for these polls
+    const [userVotes] = await db.query(
+      `SELECT poll_id, option_id, created_at as voted_at
+      FROM poll_votes
+      WHERE poll_id IN (?) AND user_id = ?`,
+      [pollIds, userId]
+    );
+
+    const userVoteMap = {};
+    userVotes.forEach((uv) => {
+      userVoteMap[uv.poll_id] = uv;
+    });
+
+    const optionsByPoll = {};
+    options.forEach((opt) => {
+      if (!optionsByPoll[opt.poll_id]) optionsByPoll[opt.poll_id] = [];
+      optionsByPoll[opt.poll_id].push(opt);
+    });
+
+    polls.forEach((p) => {
+      const pollOpts = optionsByPoll[p.id] || [];
+      const totalVotes = Number(p.total_votes) || 0;
+      const userVote = userVoteMap[p.id];
+
+      p.options = pollOpts.map((opt) => ({
+        id: opt.id,
+        option_text: opt.option_text,
+        order_index: opt.order_index,
+        vote_count: Number(opt.vote_count) || 0,
+        percentage: totalVotes > 0 ? Math.round(((Number(opt.vote_count) || 0) / totalVotes) * 100) : 0,
+      }));
+
+      p.user_vote = {
+        has_voted: Boolean(userVote),
+        option_id: userVote ? userVote.option_id : null,
+        voted_at: userVote ? userVote.voted_at : null,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: polls,
+    });
+  } catch (err) {
+    console.error('Get polls for material error:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
+
+// 10. POST /api/polls/:id/vote (Member: Cast a vote)
 pollsRouter.post('/:id/vote', authMiddleware, async (req, res) => {
   const pollId = req.params.id;
   const userId = req.user.id;

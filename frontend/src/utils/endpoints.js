@@ -56,6 +56,7 @@ export const API_ENDPOINTS = {
     TOGGLE_STATUS: (id) => `/polls/${id}/toggle-status`,
     VOTERS: (id) => `/polls/${id}/voters`,
     MEMBER_ACTIVE: '/polls/member/active',
+    BY_MATERIAL: (materialId) => `/polls/material/${materialId}`,
     VOTE: (id) => `/polls/${id}/vote`,
   },
 };

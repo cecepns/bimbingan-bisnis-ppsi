@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BarChart3, Users, Search, Loader2, CheckCircle2, Calendar, Phone, Mail } from 'lucide-react';
+import { BarChart3, Users, Search, Loader2, CheckCircle2, Calendar, Phone, Mail, BookOpen } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Pagination from '../ui/Pagination';
 import EmptyState from '../ui/EmptyState';
@@ -127,6 +127,26 @@ const PollDetailModal = ({ isOpen, onClose, pollId }) => {
                 {poll?.status === 'active' ? '● Aktif' : '○ Nonaktif'}
               </span>
             </div>
+
+            {/* Muncul di materi */}
+            {poll?.materials && poll.materials.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-indigo-500/10">
+                <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <BookOpen size={12} className="text-indigo-500" />
+                  Muncul di {poll.materials.length} Materi:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {poll.materials.map((m) => (
+                    <span
+                      key={m.id}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/80 dark:bg-gray-800 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-gray-200"
+                    >
+                      {m.order_index}. {m.title}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Navigation Tabs */}
